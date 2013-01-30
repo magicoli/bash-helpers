@@ -1,0 +1,79 @@
+#!/bin/sh
+
+if [ ! "$1" ]
+    then
+    exit
+fi
+
+IFS='|'
+PGM=`basename $0`
+
+guide_id=`echo $@ \
+    | grep "[0-9][0-9][0-9]-[0-9][0-9][0-9]" \
+    | sed "s/^.*\([0-9][0-9][0-9]-[0-9][0-9][0-9][a-zA-Z0-9\.]*\).*/\\1/"
+`
+
+if [ ! "$guide_id"  ]
+    then
+    name=`echo "$@"|sed "s/ /.*/g"`
+    psql -Atq -d lemaire -c "
+	SELECT guide_id, name, publish
+	FROM companies 
+	WHERE name ~* '$name'
+	" | while read id name publish
+      do
+      [ "$publish" = "t" ] && PUB=' PUB ' || PUB='     '
+      echo "$id $PUB $name"
+    done
+fi
+
+#param=`echo $@|sed "s/.*$guide_id *//"|cut -d " " -f 1`
+param=$2
+
+if [ ! "$param" ]
+    then
+    echo $PGM: looking for $guide_id
+    psql -Atq -d lemaire -c "
+	SELECT guide_id, name, publish 
+	FROM companies 
+	WHERE guide_id='$guide_id'
+	" | while read id name publish
+      do
+      [ "$publish" = "t" ] && PUB=' PUB ' || PUB='     '
+      echo "$id $PUB $name"
+    done
+    exit
+fi
+
+if [ "$param" = "1" ]
+    then
+    p=true
+	else
+    p=false
+fi
+
+psql -Atq -d lemaire -c "
+SELECT guide_id, name, publish 
+FROM companies 
+WHERE guide_id='$guide_id'
+" | while read id name publish
+  do
+      [ "$publish" = "t" ] && PUB=' PUB ' || PUB='     '
+      echo "$id $PUB $name"
+done
+psql -d lemaire <<EOF
+UPDATE forms SET publish=$p WHERE guide_id='$guide_id';
+UPDATE companies SET publish=$p WHERE guide_id='$guide_id';
+EOF
+
+exit
+
+psql -Atq -d lemaire -c "
+SELECT guide_id, name, publish 
+FROM companies 
+WHERE guide_id='$guide_id'
+" | while read id name publish
+  do
+      [ "$publish" = "t" ] && PUB=' PUB ' || PUB='     '
+      echo "$id $PUB $name"
+done

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+IFS="|"
+
+cat $@ \
+    | tr "\t" "|" \
+    | cut -d "|" -f 1,7,8 \
+    | while read company_id guides colis
+  do
+  if [ $guides -gt 2 -a $guides -lt 100 ]
+      then
+#  echo $company_id $guides $colis
+      psql -Atq -d lemaire -c "
+      SELECT 
+      c.company_id, c.guide_id, c.zip, c.name, c.street, c.city, '$guides' as guides, '$colis' as colis , f.owner, f.chef, f.phone, f.closed_mid as midi, f.closed_eve as soir
+      FROM companies as c, forms as f
+      WHERE c.company_id=$company_id AND f.company_id=$company_id
+      ORDER BY f.form_id desc limit 1
+      " \
+	  | tr "|" "\t"
+  fi
+done
+
+

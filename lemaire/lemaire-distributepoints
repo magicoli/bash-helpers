@@ -1,0 +1,96 @@
+#!/bin/sh
+
+IFS=','
+
+cat $@ | while read company_id guide_id publish nc p2 c2 p3 c3 p4 c4 p5 c5
+  do
+  echo "$company_id $guide_id"
+  unset fields
+  unset values
+  if [ $p2 ] 
+      then
+      fields="$fields, points"
+      values="$values, '$p2'"
+  fi
+  if [ $c2 ] 
+      then
+      fields="$fields, diamonds"
+      values="$values, '$c2'"
+  fi
+  if [ "$fields" ]
+      then
+      fields="company_id, edition$fields,author,modstamp,weight"
+      values="'$company_id', '2002'$values,'guide','2002-12-31','-100'"
+      psql -d lemaire -c "INSERT INTO points ($fields) VALUES ($values);"
+  fi
+
+  unset fields
+  unset values
+  if [ $p3 ] 
+      then
+      fields="$fields, points"
+      values="$values, '$p3'"
+  fi
+  if [ $c3 ] 
+      then
+      fields="$fields, diamonds"
+      values="$values, '$c3'"
+  fi
+  if [ "$fields" ]
+      then
+      fields="company_id, edition$fields,author,modstamp,weight"
+      values="'$company_id', '2003'$values,'guide','2003-12-31','-100'"
+      psql -d lemaire -c "INSERT INTO points ($fields) VALUES ($values);"
+  fi
+
+  unset fields
+  unset values
+  if [ $p5 ] 
+      then
+      fields="$fields, points"
+      values="$values, '$p5'"
+  fi
+  if [ $c5 ] 
+      then
+      fields="$fields, diamonds"
+      values="$values, '$c5'"
+  fi
+  if [ $nc ] 
+      then
+      fields="$fields, nc"
+      values="$values, 't'"
+  fi
+  if [ "$fields" ]
+      then
+      fields="company_id, edition$fields,author,modstamp,weight"
+      values="'$company_id', '2005'$values,'hugo','2004-11-01', '6'"
+      psql -d lemaire -c "INSERT INTO points ($fields) VALUES ($values);"
+  fi
+
+  IFS='|'
+  (
+  psql -Atq -d lemaire <<EOF
+  SELECT points, diamonds, nc, author 
+  FROM points 
+  WHERE company_id=$company_id 
+  ORDER BY edition desc, weight desc 
+  LIMIT 1;
+EOF
+  ) | while read npoints ndiams nnc foo
+    do
+    if [ ! $npoints ]
+	then
+	npoints=NULL
+    fi
+    if [ ! $ndiams ]
+	then
+	ndiams=NULL
+    fi
+    if [ ! $nnc ]
+	then
+	nnc='f'
+    fi
+    psql -d lemaire -c "UPDATE companies SET points=$npoints,diamonds=$ndiams,nc='$nnc' WHERE company_id=$company_id;"
+  done
+  IFS=','
+done

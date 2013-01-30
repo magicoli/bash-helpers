@@ -1,0 +1,50 @@
+#!/bin/sh
+
+VTAB='<\\\n>'
+
+#lemaire-replaceinfield $1 $2 "[\\\n]" " " $3 $4
+
+#     WHERE comment ~ ''
+#     LIMIT 5
+#     ORDER by comment_id desc
+
+psql -Atq -d lemaire -c "
+     SELECT comment_id FROM comments 
+     WHERE comment ~ '\n'
+     " | while read comment_id
+  do 
+  if [ ! "$comment_id" ]
+      then
+      break
+  fi
+  
+  echo "-- comment_id $comment_id"
+  psql -Atq -d lemaire -c \
+      "SELECT comment FROM comments 
+      WHERE comment_id=$comment_id" \
+	  | sed "s/^/-- /"
+
+  comment=`psql -Atq -d lemaire -c \
+      "SELECT comment FROM comments 
+      WHERE comment_id=$comment_id" \
+	  | tr '\n' ' ' \
+	  | tr "" " " \
+	  | sed "s/  */ /g" \
+	  | sed "s/ $//" \
+	  | sed "s/'/\\\\\\'/g" 
+      `
+
+  echo "UPDATE comments
+      SET comment='$comment'
+      WHERE comment_id=$comment_id
+      ;
+      "
+done
+
+exit
+
+
+#!/bin/sh
+
+VTAB='<\\\n>'
+

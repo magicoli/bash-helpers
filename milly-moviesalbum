@@ -1,0 +1,28 @@
+#!/bin/sh
+
+folder=$@
+echo "## $folder"
+title=`basename "$folder"`
+echo "## $title"  
+
+html="$title.html"
+
+echo "<title>$title</title" > $html
+
+ls "$folder" \
+    | while read file
+  do
+  echo "   $file"
+  url=`echo $folder/$file | sed "s/ /%20/g"`
+  filename=`echo $file | sed "s/\.[a-zA-Z]*$//"`
+
+  cat <<EOF >> $html
+  <p><embed pluginspage="http://www.apple.com/quicktime/download/"
+  src="$url"
+  type="video/quicktime"  
+  controller="true" autoplay="false">
+  <br>
+  <a href="$url">$filename</a></p>
+EOF
+
+done

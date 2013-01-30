@@ -1,0 +1,215 @@
+#!/bin/sh
+
+PGM=`basename $0`
+TMP=/tmp/$PGM
+
+echo "$PGM: removing previous scripts"
+
+rm -f $TMP.*
+
+echo "$PGM: building scripts"
+
+(
+cat <<EOF
+cd /etc/namedb/dynamic
+ls *.* | egrep -v "~$|\.jnl" | while read zone
+do
+	rndc freeze \$zone
+done
+EOF
+) > $TMP.1.dave.named-freeze
+
+(cat <<EOF
+mkdir -p /var/namedb/templates
+rsync -Wavz --delete dave:/var/named/etc/namedb/base.zone /var/namedb/templates/
+rsync -Wavz --delete dave:/var/named/etc/namedb/master/ /var/namedb/master/
+rsync -Wavz --delete dave:/var/named/etc/namedb/slave/ /var/namedb/slave/
+rsync -Wavz --delete dave:/var/named/etc/namedb/dynamic/ /var/namedb/dynamic/
+EOF
+) > $TMP.2.glenn.named-sync
+
+cat $TMP.1.dave.named-freeze | sed "s/freeze/thaw/" > $TMP.3.dave.named-thaw
+
+touch $TMP.99.local.mainscript
+
+(
+cat <<EOF
+#!/bin/sh
+
+cat /etc/bind/named.conf.local.dist | sed "s:// include:include:" > /etc/bind/named.conf.local
+cd /var/namedb/master
+rm *.db dave dude
+
+# echo "// rndc key" >> /etc/bind/named.conf.local
+# echo >> /etc/bind/named.conf.local
+echo "include \"/etc/bind/rndc.key\";" >> /etc/bind/named.conf.local
+
+echo >> /etc/bind/named.conf.local
+echo "// master zones" >> /etc/bind/named.conf.local
+echo >> /etc/bind/named.conf.local
+ls /var/namedb/master | while read zone
+do
+	echo "zone \"\$zone\" { type master; file \"/var/namedb/master/\$zone\"; };" >> /etc/bind/named.conf.local
+done
+echo >> /etc/bind/named.conf.local
+echo "// dynamic zones" >> /etc/bind/named.conf.local
+echo >> /etc/bind/named.conf.local
+ls /var/namedb/dynamic | while read zone
+do
+	echo "zone \"\$zone\" { type master; file \"/var/namedb/dynamic/\$zone\"; allow-update { key rndc-key; }; };" >> /etc/bind/named.conf.local
+done
+echo >> /etc/bind/named.conf.local
+echo "// slave zones" >> /etc/bind/named.conf.local
+echo >> /etc/bind/named.conf.local
+
+cd /var/namedb
+sed -i"" "s/\(.*IN.*SOA.*\)dave.[a-z\.]*/\\1glenn.speculoos.net./" */*
+sed -i"" "s/\(.*IN.*SOA.*\)duke.[a-z\.]*/\\1glenn.speculoos.net./" */*
+sed -i"" "s/root\.[a-z\.]*/root.speculoos.net./" */*
+sed -i"" "s/\(.*NS.*\)dave.*/\\1glenn.speculoos.net./" */*
+sed -i"" "s/\(.*NS.*\)duke.*/\\1glenn.speculoos.net./" */*
+sed -i"" "s/\(.*NS.*\)dude.*/\\1fats.speculoos.net./" */*
+sed -i"" "s/\(ns.*IN.*A.*\)78.46.82.98.*/\\194.23.59.129/" */*
+
+lastserial=\$(egrep "[0-9]*.*;.*serial" */*  | cut -d ":" -f 2 | sed "s/[^0-9]//g" | sort -n | tail -1)
+newserial=\$((\$lastserial + 1))
+echo "last serial: \$lastserial"
+echo "new serial:  \$newserial"
+
+sed -i"" "s/.*;.*serial.*/					\$newserial	; serial/" */*
+	
+cd /etc/bind
+[ ! -f rndc.key.dist ] && cp -rp rndc.key rndc.key.dist
+[ ! -f named.conf.options.dist ] && cp -rp named.conf.options named.conf.options.dist
+sed "s:listen-on:// listen-on:" named.conf.options.dist > named.conf.options
+/etc/init.d/bind9 restart
+EOF
+) >> $TMP.4.glenn.named.conf
+
+(
+cat <<EOF
+[ ! -f /etc/bind/named.conf.local.dist ] && cp -p /etc/bind/named.conf.local /etc/bind/named.conf.local.dist
+cp -p /etc/bind/named.conf.local.dist /etc/bind/named.conf.local
+cd /etc/bind
+[ ! -f rndc.key.dist ] && cp -p rndc.key rndc.key.dist
+[ ! -f named.conf.options.dist ] && cp -p named.conf.options named.conf.options.dist
+sed "s:listen-on:// listen-on:" named.conf.options.dist > named.conf.options
+cat /etc/bind/named.conf.local.dist | sed "s:// include:include:" > /etc/bind/named.conf.local
+EOF
+) >> $TMP.5.fats.named.conf
+ssh glenn grep ^zone /etc/bind/named.conf.local | cut -d '"' -f 2 | while read zone
+do
+	echo "echo \"zone \\\"$zone\\\" { type slave; file \\\"/var/namedb/slave/$zone\\\"; masters { 94.23.59.129; }; };\" >> /etc/bind/named.conf.local"
+done >> $TMP.5.fats.named.conf
+echo "/etc/init.d/bind9 restart"  >> $TMP.5.fats.named.conf
+
+echo "$PGM: sending script to their hosts"
+
+chmod +x $TMP.*
+ls $TMP.* | grep -v "\.local\." | while read file
+do
+	server=$(echo $file | cut -d "." -f 3)
+	scp "$file" root@$server:$file
+	echo ssh root@$server $file >> $TMP.99.local.mainscript
+done
+
+exit
+
+echo "$PGM: to proceed, execute $TMP.99.local.mainscript"
+
+cat $TMP.99.local.mainscript
+exit
+
+### End of upgrade process dave > glenn
+exit
+### Previous procedure for duke > dave
+
+echo "#!/bin/sh" > $TMP.nsupdate
+echo "#!/bin/sh" > $TMP.mailboxsync
+echo "#!/bin/sh" > $TMP.secondary
+echo "#!/bin/sh" > $TMP.sendmailconf
+
+(
+echo "/var/mail"
+ssh root@duke ls -d /home/*/email /home/*/data/email
+) > $TMP.mailfolders
+
+echo "building mailbox sync procedure"
+
+echo >> $TMP.mailboxsync
+echo "echo Synchronizing mail folders" >> $TMP.mailboxsync
+echo >> $TMP.mailboxsync
+
+cat $TMP.mailfolders | while read mailfolder
+do
+	echo "rsync --progress -Wavz duke:$mailfolder/ $mailfolder/"
+	# ssh root@dave ls -d "$mailfolder"
+	# echo "result: $?"
+done >> $TMP.mailboxsync
+
+echo "building old server mail config"
+
+ssh root@duke cat /etc/mail/local-host-names /etc/mail/relay-domains | sort -u > $TMP.maildomains
+
+echo >> $TMP.sendmailconf
+echo "echo Synchronizing mail folders" >> $TMP.sendmailconf
+echo >> $TMP.sendmailconf
+
+echo "echo > /etc/mail/local-host-names" >> $TMP.sendmailconf
+echo "cat $TMP.maildomains > /etc/mail/relay-domains" >> $TMP.sendmailconf
+echo "/etc/rc.d/sendmail restart" >> $TMP.sendmailconf
+
+echo "building zone update procedure" 
+
+echo >> $TMP.secondary
+echo "echo updating secondary zone" >> $TMP.secondary
+echo >> $TMP.secondary
+
+echo >> $TMP.nsupdate
+echo "echo standard domains"  >> $TMP.nsupdate
+echo >> $TMP.nsupdate
+
+ssh root@dave grep -l base-template /etc/namedb/master/* | grep -v "~" | while read path
+do
+	domain=`basename "$path"`
+	echo "printf \"$domain \"" >> $TMP.nsupdate
+	echo "cp /etc/namedb/base.zone $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.secondary
+done
+
+echo >> $TMP.nsupdate
+echo "echo custom domains" >> $TMP.nsupdate
+echo >> $TMP.nsupdate
+
+ssh root@dave ls /etc/namedb/migration-* | while read file
+do
+	domain=`basename "$file" | sed "s/migration-//"`
+	echo "printf \"$domain \"" >> $TMP.nsupdate
+	echo "cp $file /etc/namedb/$domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.secondary
+done
+
+echo "sending update batches"
+
+chmod +x $TMP.*
+
+scp $TMP.mailboxsync root@dave:$TMP.mailboxsync
+scp $TMP.nsupdate root@dave:$TMP.nsupdate
+scp $TMP.secondary root@duke:$TMP.secondary
+scp $TMP.maildomains root@duke:$TMP.maildomains
+scp $TMP.sendmailconf root@duke:$TMP.sendmailconf
+
+echo
+echo "ready to go"
+echo
+
+echo "on dave:"
+echo $TMP.mailboxsync
+echo $TMP.nsupdate
+
+echo 
+echo "on duke:"
+echo $TMP.secondary
+echo $TMP.sendmailconf

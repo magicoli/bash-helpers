@@ -1,0 +1,92 @@
+#!/bin/sh
+
+#DUMPDIR=/Volumes/EasyRaid/Backup/medor.milly.be/Library/PostgreSQL/dumps
+DUMPDIR=/Users/magic/backups
+
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+SPC=`echo $PGM | sed "s/./ /g"`
+
+cd
+
+[ -f .profile ] && . .profile
+
+cd $DUMPDIR
+
+[ "$1" ] && $HOSTS=$@ || hosts=localhost
+
+for host in $HOSTS
+  do
+#if [ $1 ] 
+#    then
+#    DATABASES=$@
+#else
+    DATABASES=`psql -Atq -d template1 -l \
+	| grep -v "^template" \
+	| cut -d "|" -f 1`
+#fi
+
+    for database in $DATABASES
+      do
+      stamp=`date +"%Y%m%d-%H%M%S"`
+      [ "$host" = "localhost" ] && hostname=`hostname` || hostname=$host
+      dumpfile="$hostname-$database-$stamp"
+      
+      printf "$PGM: `date`\n"
+      printf "$SPC  processing $database: "
+      
+      pg_dump -C -s -d $database > $DUMPDIR/$dumpfile.schema 2>$TMP.errors 
+      result=$?
+      if [ $result -ne 0 ] 
+	  then
+	  (
+	      printf "$PGM: `date`\n"
+	      printf "$SPC  processing $database: "
+	      echo "schema dump failed ($result)"
+	      cat $TMP.errors
+	      echo
+	  ) >&2
+	  continue
+      else
+	  printf "schema ok, "
+      fi
+      
+      pg_dump -C -d $database > $DUMPDIR/$dumpfile.dump 2>$TMP.errors 
+      result=$?
+      if [ $result -ne 0 ] 
+	  then
+	  (
+	      printf "$PGM: `date`\n"
+	      printf "$SPC  processing $database: "
+	      echo "full dump failed ($result)"
+	      cat $TMP.errors
+	      echo
+	  ) >&2
+	  continue
+      else
+	  printf "full ok, " 
+      fi
+      
+      tar cvfz pgdump-$database.tgz $dumpfile* >$TMP.errors 2>&1 
+      result=$?
+      if [ $result -ne 0 ] 
+	  then
+	  ( 
+	      printf "$PGM: `date`\n"
+	      printf "$SPC  processing $database: "
+	      echo "tar failed ($result)"
+	      cat $TMP.errors
+	      echo
+	  ) >&2
+	  continue
+      else
+	  echo "tar ok"
+	  rm $dumpfile*
+      fi
+    done
+
+done
+    
+echo "$PGM: `date` end processing"
+
+[ $TMP ] && rm -f $TMP.*

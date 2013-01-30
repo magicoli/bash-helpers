@@ -1,0 +1,37 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+cd $NEWSPATH
+
+for MASK in $@
+do
+    mv suckothermsgs.queue suckothermsgs.queue.tmp
+    touch suckothermsgs.queue
+    egrep "$MASK" suckothermsgs.queue.tmp >> suckothermsgs
+    egrep -v "$MASK" suckothermsgs.queue.tmp > suckothermsgs.queue
+    rm -f suckothermsgs.queue.tmp
+done
+
+if [ "$@" ]
+then
+    if [ $((`cat suckothermsgs|wc -l`)) -eq 0 ]
+    then
+	echo $PGM: no result found
+	exit 1
+    fi
+else
+	mv -f suckothermsgs.queue suckothermsgs
+	touch suckothermsgs.queue
+fi
+
+/usr/bin/suck $SERVER -m
+
+cat suckothermsgs >> suckothermsgs.done
+rm -f suckothermsgs
+
+$PGMPATH/newsbot-sortitall
+

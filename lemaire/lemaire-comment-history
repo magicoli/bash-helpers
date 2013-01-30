@@ -1,0 +1,76 @@
+#!/bin/sh
+
+id=$1
+
+if [ ! "$1" ]
+    then
+    exit
+fi
+
+IFS='|'
+PGM=`basename $0`
+
+guide_id=`echo $1 | grep "^[0-9][0-9][0-9]-[0-9][0-9][0-9]$"`
+company_id=`echo $1 | grep "^[0-9]*$"`
+
+if [ "$guide_id" ]
+then
+#    condition="guide_id='$guide_id'"
+    company_id=`psql -Atq -d lemaire \
+	-c "select company_id from companies where guide_id='$guide_id'"`
+fi
+
+if [ "$company_id" ]
+    then
+    condition="company_id='$company_id'"
+else
+    name=`echo $1|sed "s/ /.*/g"`
+    count=`psql -Atq -d lemaire \
+	-c "select count(*) from companies where name ~* '$name'" `
+    if [ $count != 1 ]
+	then
+	echo "$count name(s) matchin '$name'"
+	exit
+    fi
+    company_id=`psql -Atq -d lemaire \
+	-c "select company_id from companies where name ~* '$name'"`
+    condition="company_id='$company_id'"
+fi
+
+
+echo "### $PGM"
+echo
+(
+psql -Atq -d lemaire <<EOF
+SELECT guide_id, name 
+FROM companies
+WHERE $condition
+EOF
+) | sed "s/ *|/|/g" | while read guide_id name
+do
+  echo "[$guide_id] $name"
+done
+echo
+
+if [ "$2" ]
+    then
+    condition="$condition AND lang='$2'"
+fi
+condition="$condition AND edition=2005"
+
+(
+psql -Atq -d lemaire <<EOF
+SELECT comment_id, modlogin, modstamp, lang, comment 
+FROM comments 
+WHERE $condition
+ORDER BY edition, lang, comment_id;
+EOF
+) | sed "s/ *|/|/g" | while read comment_id modlogin modstamp lang comment
+do
+  if [ $comment_id ]
+      then
+      echo "[$comment_id] $lang - $modlogin - $modstamp"
+      echo $comment
+      echo
+  fi
+done

@@ -1,0 +1,45 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+rm -f .getcount
+touch .getcount
+tail -f .getcount &
+
+LIST=`ls | egrep -v "^nohup.out|^\.get"`
+for NAME in $LIST
+do
+    if [ ! -f "$NAME/.getsubjects" ]
+    then
+#        echo Generating $NAME/.getsubjects
+        grep -H "^Subject" $NAME/* | \
+		sed "s/\[/(/g" | sed "s/\]/)/g" | \
+		sed "s/[()]\(.*\)(\(.*\)\/\(.*\)).*/\\1 (\\2\/\\3)/" | \
+		sed "s/[()]\(.*\)(\(.*\)\/\(.*\)).*/\\1 (\\2\/\\3)/" | \
+		sed "s/[()]\(.*\)(\(.*\)\/\(.*\)).*/\\1 (\\2\/\\3)/" | \
+		sed "s/[()]\(.*\)(\(.*\)\/\(.*\)).*/\\1 (\\2\/\\3)/" | \
+		sed "s/(/ (/g" | sed "s/ *(/ (/g" | \
+		sed "s/ *\././g" | \
+		sed "s/\(.*\)\.\(.*\)\.\([[:digit:]]*\) (/\\1.\\3.\\2 (/" \
+		> $NAME/.getsubjects
+        cat $NAME/.getsubjects \
+		| sed "s/.*\/\(.*\):Sub.*(\(.*\)).*/\\2 \\1/" \
+		| sort -nu | cut -d " " -f 2 > $NAME/.getlist
+    	TOTAL=`sed "s/.*(.*\/\(.*\)).*/\\1 \\2/" $NAME/.getsubjects | sed "s/.*\[.*\/\(.*\)\].*/\\1 \\2/" | sort -u`
+    	if [ "$TOTAL" ]
+    	then
+    	FOUND=`sed "s/.*(/(/" $NAME/.getsubjects | sort -u | grep -c ''`
+    	if [ $FOUND -ge $TOTAL ]
+    	then
+    	    echo -n ">  " >> .getcount
+    	else
+    	    echo -n "   " >> .getcount
+    	fi
+    	echo "$NAME: $FOUND / $TOTAL" >> .getcount
+	fi
+    fi
+done
+sleep 1

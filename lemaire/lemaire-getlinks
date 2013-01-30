@@ -1,0 +1,57 @@
+#!/bin/sh
+
+MAX=10
+BASEURL="http://www.guide-lemaire.com/update/resto.php?action=resto+form"
+
+prov_id=$1
+
+ssh duke lemaire-get-unmodified-restos $prov_id \
+    | head -$MAX \
+    | while read company_id name
+  do
+  echo $company_id $name
+  open "$BASEURL&company_id=$company_id"
+# "http://www.guide-lemaire.com/update
+done
+exit
+
+
+if [ ! "$1" ]
+then
+    exit
+fi
+
+if [ ! -f "list-$1" ] 
+then
+    lynx -auth=magic:luminaire -dump "http://www.guide-lemaire.com/update/resto.php?action=list&s_prov_id=$prov_id&m=full" \
+	| grep -A 1000 "^References" \
+	| grep http \
+	| grep "action=resto+form"|sed "s/^ *[0-9]*\. *//" \
+	> list-$1
+fi
+
+total=`cat list-$1|wc -l|sed "s/ //g"`
+
+# echo $total lines to process
+
+if [ $2 ] 
+    then
+    start=$2
+else
+    start=0
+fi
+
+end=`expr $start + $MAX`
+cat list-$prov_id \
+    | head -$end | tail -$MAX \
+    | sed "s/action=view/action=resto+form/g" \
+    | while read url
+  do
+  open "$url"
+done
+
+printf "$0 $1 $end / $total"
+read key
+
+"$0" "$1" $end
+

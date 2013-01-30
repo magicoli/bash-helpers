@@ -1,0 +1,26 @@
+#!/bin/sh
+
+CONFFILE="/Network/Servers/cagliostro/etc/named.conf /Network/Servers/houdini/etc/named.conf /Network/Servers/oz/etc/named.conf"
+
+DOMAINS=`cat $CONFFILE | sed "s/^ *//" | grep -w "^zone" | cut -d '"' -f 2 | sort -u`
+DOMAINPATH=`grep "option.*directory" $CONFFILE | sed "s/.*directory \"\(.*\)\".*/\\1/"`
+
+
+for DOMAIN in $DOMAINS
+do
+	echo -n $DOMAIN:
+	DOMAINTLD=`echo $DOMAIN | sed "s/.*\.//"`
+	echo -n $DOMAINTLD:
+	case $DOMAINTLD in 
+	be)
+		DOMAINNS=`host -t ns $DOMAIN ns.eu.net | grep -w "name server" | cut -d " " -f 4`
+		;;
+	info)
+		DOMAINNS=`whois -h whois.networksolutions.com $DOMAIN | grep -A 5 "Domain servers" | grep -v "Domain servers" | sed "s/^ *//" | egrep "[a-zA-Z0-9]" | cut -f 1`
+		;;
+	*)
+		DOMAINNS=`whois $DOMAIN | sed "s/ *//g" | grep "^NameServer:" | cut -d ":" -f 2`
+	esac
+	echo $DOMAINNS
+# `named-xfer -f $DOMAINPATH/$DOMAINFILE -z $DOMAIN $DOMAINAUTH 2>&1 | cut -d ":" -f 2`
+done

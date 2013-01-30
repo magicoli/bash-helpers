@@ -1,0 +1,251 @@
+#!/bin/sh
+
+PID=$$
+PGM=`basename $0`
+TMP=/tmp/.$PGM.$PID
+BILLDETAIL=/tmp/$PGM-billdetail
+LOG=/tmp/$PGM
+TABLE=`echo "tmp_${PGM}_${PID}" | sed "s/[^a-zA-Z0-9_]//g"`
+
+export PAGER=cat
+
+OPTS="b:c:s:r:hvq"
+
+PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
+PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
+    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
+    | sed "s/.\///g" `
+USAGE=`echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g"`
+
+
+help() {
+    usage
+    echo
+    echo "      -t <template>"
+    echo "      -H display this help"
+    echo "      -V verbose mode"
+    echo "      -Q quiet mode"
+    echo
+    echo "sorry, helpman is in a minimalist mood"
+    exit 0
+}
+
+usage() {
+    echo "usage: $USAGE"
+}
+
+log() {
+    if [ "$LOG" ]
+        then
+        ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
+        ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+        [ "$ERRNUM" ] && shift
+        LOGMESSAGE=$@
+        LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+        [ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+        if [ "$ERRNUM" -a "$QUIET" != "yes" ]
+            then
+            echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2
+        elif [ "$DEBUG" = "yes" ]
+            then
+            echo "$PGM: $LOGMESSAGE" >&2
+        fi
+    else
+        echo "LOG variable not set"
+        exit 1
+    fi
+}
+
+end() {
+#    ERRNUM=$1
+#    if [ "$ERRNUM" != "" -a "$ERRNUM" = "`echo $ERRNUM|sed 's/[^0-9]//g'`" ]
+#        then
+#        ERRNUM=`expr $ERRNUM + 0`
+#        shift
+#        [ "$#" -gt 0 ]  && log "<$ERRNUM>" $@
+#    else
+#        ERRNUM=
+#        if [ "$#" -gt 0 ]
+#            then
+#            log $@
+#	elif [ "$DEBUG" = "yes" ]
+#	    then
+	if [ "$1" ]
+		then
+		log $@
+	else
+	    log "End processing"
+    fi
+    rm -f $TMP*
+    rm -f $LOG.lock
+    exit $ERRNUM
+}
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		*)
+		    printf "$PGM: illegal option -- $OPTARG"
+#		    ERROR=1
+	    esac
+	    ;;
+	r)
+	    FROM=$OPTARG
+	    ;;
+	s)
+	    SUBJECT=$OPTARG
+	    ;;
+	c)
+		CC=$OPTARG
+		;;
+	b)
+		BCC=$OPTARG
+		;;
+	H)
+	    help
+	    ;;
+	V)
+#		    echo "Debug mode"
+	    STDERR="&1"
+	    DEBUG=yes
+	    ;;
+	Q)
+	    STDOUT="/dev/null"
+		QUIET=yes
+	    DEBUG=no
+	            ;;
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+
+done 2>/dev/null
+
+shift `expr $OPTIND - 1`
+
+if [ $ERROR ]
+then
+    usage
+echo "$ERROR   type '$PGM --help' for more info"
+
+    end "$ERROR   type '$PGM --help' for more info"
+fi
+
+if [ ! "$USER" ]
+then
+	USER=`id|cut -d "(" -f 2|cut -d ")" -f 1`
+fi
+
+if [ ! "$HOSTNAME" ]
+then
+	HOSTNAME=`hostname`
+fi
+
+if [ ! "$DOMAINNAME" ]
+then
+	DOMAINNAME=`domainname`
+	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
+	then
+		DOMAINNAME=spekuloos.be
+	fi
+fi
+
+RETMAIL="$HOSTNAME@$DOMAINNAME"
+
+if [ -f "$FROM" ]
+	then
+	SENDER=$FROM
+else
+	SENDER="\"$HOSTNAME\" <$RETMAIL>"
+fi
+
+#  TRDIR=/prov/tmp/mailtrace
+#  if [ ! -d $TRDIR ]
+#  	then
+#  	UU=`umask`
+#  	umask 0
+#  	mkdir $TRDIR
+#  	umask $UU
+#  	fi
+#  TRACE=$TRDIR/mail.$$.trace.4t
+#  TRSUB=$TRDIR/.trace_ftp_mail.$$.4t
+#  INPUT=$TRDIR/.input_ftp_mail.$$.t
+
+DEST=`echo $@|sed "s/ /,/g"|sed "s/,,*/,/g"` 
+
+#  cat > $INPUT
+#  echo "$SUB" > $TRSUB
+#  echo "$DEST" >> $TRSUB
+#  [ "$CC" ]  && echo "$CC" >> $TRSUB
+#  [ "$BCC" ] && echo "$BCC" >> $TRSUB
+#  cat $INPUT >> $TRSUB
+
+parentpid=$PPID
+parentcmd=`ps -p $$ -o command=`
+parentusr=`ps -p $$ -o user=`
+
+
+if [ "$SUBJECT" = "" ]
+	then
+	SUBJECT="$parentcmd report"
+fi
+
+if [ "$DEST" = "" ]
+	then
+	DEST="report@$DOMAINNAME"
+fi
+
+echo "From: $SENDER" > $TMP.headers
+echo "Reply-To: $SENDER" > $TMP.headers
+echo "To: $DEST" >> $TMP.headers
+[ "$CC" ]  && echo "Cc: $CC"   >> $TMP.headers
+[ "$BCC" ] && echo "Bcc: $BCC" >> $TMP.headers
+echo "Subject: $SUBJECT" >> $TMP.headers
+echo "X-PPID: $PPID" >> $TMP.headers
+echo "X-Parent-Process: $parentcmd" >> $TMP.headers
+echo "X-Parent-User: $parentusr" >> $TMP.headers
+echo "Content-Type: text/html" >> $TMP.headers
+
+# ps -ef|grep $$ \
+#     | while read user pid ppid foo date term time command
+#   do
+#   if [ $pid = $$ ]
+#       then
+#       echo X_PPID=$ppid >> $TMP
+#       echo X-Cl-process: $command >> $TMP.headers
+#       echo "X-Cl-process-owner: $user ($pid $date $time)" >> $TMP.headers
+#   fi
+# done
+
+
+# if [  -f $TMP ] 
+#     then
+#     . $TMP
+#     ps -ef|grep $X_PPID \
+# 	| while read user pid ppid foo date term time command
+#       do
+#       if [ $pid = $X_PPID ]
+# 	  then
+# 	  echo X-Cl-parent: $command >> $TMP.headers
+# 	  echo "X-Cl-parent-owner: $user ($pid $date $time)" >> $TMP.headers
+#       fi
+#     done
+# fi
+
+echo >> $TMP.headers
+
+cat > $TMP.input
+cat $TMP.headers $TMP.input | /usr/sbin/sendmail "$DEST"
+# cat $TMP.headers $TMP.input | /usr/bin/mailx -f "$RETMAIL"
+
+# cat $TMP.headers $TMP.input
+
+rm $TMP*

@@ -1,0 +1,1 @@
+lynx -dump "http://www.newzbot.com/serverlist.php?since=ALL&orderby=groupcount&sortorder=desc&show_maxgroup=on&show_post=on&show_kps=on&show_retention=on&notable=1"|grep "News server hostname:" |cut -d "]" -f 2|cut -d " " -f 1 > .news.servers

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+SUBDIR=filmes
+WGETDIR=.
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+
+i=0
+for source in $@
+  do
+  i=`expr $i + 1`
+#  folder=`basename $source | cut -d "." -f 1`
+  folder=$WGETDIR
+  url=`dirname $source`
+  cat $source \
+      | grep "javascript:abreFilme"  \
+      | cut -d "'" -f 2 \
+      | while read file
+    do 
+    echo "http://$url/$SUBDIR/$file" >> $TMP.$i.url
+  done
+  count=$(echo `cat $TMP.$i.url | wc -l`)
+  echo "### Processing $count files in `basename $source` to $folder"
+  wget -P "$folder" -i $TMP.$i.url
+done
+
+rm $TMP*url
+

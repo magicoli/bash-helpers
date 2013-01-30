@@ -1,0 +1,52 @@
+#!/bin/sh
+
+#CAIGLBL0000=/opt/TNG/em
+#export CAIGLBL0000
+#. $CAIGLBL0000/scripts/envusr
+
+#PATH=.:/sybase/bin:/sybase/sutil:$PATH
+#export PATH
+
+if [ "$1" ]
+then
+    SRCDIR=$@
+else
+    SRCDIR=$PWD
+fi
+
+echo $SRCDIR
+
+
+TAPE=/dev/rmt/2cn
+export TAPE
+
+mt rew
+
+if [ $? != 0 ]
+	then
+	echo "out after mt rew on $TAPE" 
+	exit 1
+	fi
+
+for i in $SRCDIR
+	do
+	/usr/sbin/ufsdump 0ufb $TAPE 100 $i
+	if [ $? != 0 ]
+		then
+		echo "out after : /usr/sbin/ufsdump 0ufb $TAPE 100 $i"
+		exit 2
+		fi
+	done
+mt -f $TAPE rew
+
+MYSTATUS=$?
+
+echo "after mt rewoff : status = $MYSTATUS"
+
+if [ $MYSTATUS = 0 ]
+	then 
+		echo "`date` :clown: Backup of Filesystem successfull"
+	else
+		echo "`date` :clown: Backup of Filesystem failed : mt rewoff status = $MYSTATUS"
+fi
+exit 0

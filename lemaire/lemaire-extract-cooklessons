@@ -1,0 +1,4 @@
+#!/bin/sh
+
+IFS='|'; psql -Atq -d lemaire -c "SELECT prov_id, c.name, c.city from features as f , companies as c where c.company_id=f.company_id and key='cooklessons' and publish order by c.prov_id, c.city, c.name;;"|sed "s/ *|/|/g" | while read prov name city; do if [ "$prov" != "$oldprov" ]; then  echo;  echo; echo $prov; echo;  fi; printf "$name, $city - ";  oldprov=$prov; done; echo
+

@@ -1,0 +1,25 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+if [ "$1" ]
+then
+	LIST=$1
+else
+	LIST=$NEWSPATH/suckothermsgs.queue
+fi
+#cd /var/newsbot/Subjects/Msgs/
+#ls | wc -l
+#newsbot-queue
+#ls | wc -l
+
+
+FILES=`cut -d " " -f 2 $LIST | sort -u`
+for FILE in $FILES
+do
+	echo $FILE:`grep -cw $FILE $LIST`/`grep $FILE $LIST | head -n 1 | cut -d " " -f 3 | cut -d ")" -f 1 | cut -d "/" -f 2`
+done
+

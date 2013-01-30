@@ -1,0 +1,44 @@
+#!/bin/sh
+
+PATH=$PATH:/opt/clpb/bin
+
+HOME=/export/home
+
+ftpuser=$1
+shift
+
+if id $ftpuser >/dev/null 2>/dev/null
+    then
+    echo "# $ftpuser exists, not processed"
+    exit 1
+fi
+
+echo "#processing $ftpuser"
+
+useradd -g ftp -d $HOME/$ftpuser -s /bin/ssh-dummy-shell -c "$ftpuser" -m -k /etc/skel-anonftp/ $ftpuser  || exit 2
+
+
+[ -d $HOME/$ftpuser ] || exit 3
+getent passwd $ftpuser >>  $HOME/$ftpuser/etc/passwd || exit 4
+
+PASS=`/usr/local/ssl/bin/openssl rand 24 -base64 | cut -c -8`
+
+echo
+echo Suggested: $PASS
+echo
+
+passwd $ftpuser 
+
+(
+    echo Newftp account has been created for $@
+    echo
+    echo Server: ftp.prt.clpb.be
+    echo User: $ftpuser
+    echo Password: $PASS
+    echo
+) > /tmp/$ftpuser.msg
+
+cat /tmp/$ftpuser.msg
+cat /tmp/$ftpuser.msg |mail-report "new ftp account $ftpuser" ovh,kle,jpp
+
+rm /tmp/$ftpuser.msg

@@ -1,0 +1,164 @@
+#!/bin/sh
+
+## setting common parameters
+
+PID=$$
+PGM=`basename $0`
+TMP=~/.$PGM-test #.$PID
+EXCL=~/.$PGM-excl
+
+SRCLOGIN=mail
+SRCPATH=/network/qwentes/produits/000_1BOX/MOTIVATION
+
+cd ~/Motivation/NewArrivals
+
+#find . -type f | sed 's/.*\///'|sed 's/\([ &]\)/\\\1/'|sort -u > $TMP.nodl
+find . -type f | sed 's/.*\///'|sort -u > $TMP.nodl
+
+REQUEST=`echo $@|sed 's/\([&]\)/\\\1/'`
+
+## setting command line parameters"
+
+for FILE in $REQUEST
+do
+    case $FILE in
+	-*)
+	    for PARAM in `echo $FILE|sed "s/\-//g"|sed "s/\(.\)/ \1/g"`
+	    do
+	      case $PARAM in
+		d)
+		    DOWNLOAD=true
+		    ;;
+		h)
+		    H="-h"
+		    ;;
+		l)
+		    LIST=true
+		    LSPRM="$LSPRM -l"
+		    ;;
+		t)
+		    SIZE=true
+		    ;;
+		v)
+		    LIST=true
+		    ;;
+		m)
+		    SRCLOGIN=ovh@maab
+		    SRCPATH=/home/motivation/Decoded
+		    ;;
+		o)
+		    SRCLOGIN=ovh@oz
+		    SRCPATH=/home/ovh/network/maab/home/motivation/Decoded
+		    ;;
+		*)
+		    echo "usage: $PGM [-dhltv] [exp1 [exp2]...]"
+		    echo "   -d download files"
+		    echo "   -h human readable sizes"
+		    echo "   -l long format view (implies -v)"
+		    echo "   -t total volume to transfer"
+ 		    echo "   -v view files to transfer"
+		    rm $TMP*
+		    exit 1
+	      esac
+	    done
+	    ;;    
+	*)
+	    echo $FILE >> $TMP.req
+    esac
+done
+
+## fetch remote file list"
+
+#ssh $SRCLOGIN find $SRCPATH -type f|sed 's/\([ &]\)/\\\1/g' > $TMP.src
+ssh $SRCLOGIN find $SRCPATH -type f > $TMP.src 2>/dev/null
+
+## filtering exclude and local files"
+
+if [ ! -f $TMP.req ]
+then
+    echo "" > $TMP.req
+fi
+
+touch $EXCL
+sort -u $EXCL |grep -v '^$' > $EXCL.tmp
+mv $EXCL.tmp $EXCL
+
+find . -type f | sed 's/.*\///'|sort -u > $TMP.nodl
+
+grep -vf $TMP.nodl $TMP.src|grep -vf $EXCL|grep -f $TMP.req|sort -f > $TMP.dl
+
+#FILES=`cat $TMP.dl|grep -vf $EXCL|grep -f $TMP.req \
+#|sed 's/\([ &]\)/\\\1/g'|sort -f`
+
+## build arg list"
+
+FOLDERFILTER=`echo $SRCPATH|sed s/"\([ &\'()\/]\)"/'\\\'\\\1/g`
+
+ARGS=$(echo `cat $TMP.dl | \
+    while read FILENAME
+    do
+         echo $FILENAME|sed s/"\([ &\'()]\)"/'\\\'\\\1/g|sed "s/$FOLDERFILTER\///"
+    done
+`)
+
+SCPARGS=$(echo `cat $TMP.dl | \
+    while read FILENAME
+    do
+echo $SRCLOGIN:\"$FILENAME\"|sed s/"\([ &\'()]\)"/'\\\'\\\1/g
+#          echo "$SRCLOGIN:'$FILENAME' "
+#         echo -n \"$SRCLOGIN:
+#         echo -n $FILENAME|sed s/"\([ &\'()]\)"/'\\\'\\\1/g
+#         echo -n "\" "
+    done
+`)
+
+NBOFFILES=$((`cat $TMP.dl|wc -l`))
+
+echo $PGM: $NBOFFILES files to download
+
+if [ $NBOFFILES -eq 0 ]
+then
+    ## nothing to download"
+    rm $TMP*
+    exit 0
+fi
+
+if [ "$LIST" ]
+then
+    ## list asked, giving list
+    ssh $SRCLOGIN "cd $SRCPATH; ls $LSPRM $H $(echo $ARGS)" 2>/dev/null
+fi
+
+if [ "$SIZE" ]
+then
+    ## total size asked, giving size"
+    ssh $SRCLOGIN "cd $SRCPATH; du $H -sc $(echo $ARGS)" 2>/dev/null \
+	|tail -n 1|cut -f 1
+fi
+
+if [ "$DOWNLOAD" ]
+then
+    (
+	echo -n "scp -rp "
+	cat $TMP.dl | \
+	    while read FILENAME
+	  do
+	  echo -n $SRCLOGIN:\"$FILENAME\"|sed s/"\([ &\'()]\)"/\\\\\\1/g
+
+#'          echo "$SRCLOGIN:'$FILENAME' "
+#         echo -n \"$SRCLOGIN:
+#         echo -n $FILENAME|sed s/"\([ &\'()]\)"/'\\\'\\\1/g
+#         echo -n "\" "
+	  echo -n " "
+	done
+	echo  " ./"
+    ) |sh && cat $TMP.src | grep -f $TMP.req >> $EXCL
+
+#    echo download asked
+#    echo download asked
+#    echo download asked, downloading
+#    echo scp $(echo $SCPARGS)|sh 
+fi
+
+## removing temp files: $TMP*"
+rm $TMP*

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+cd $NEWSPATH
+
+cp suckothermsgs.queue tmpqueue
+REMOVED=`grep -f excludelist tmpqueue|cut -d " " -f 2|sort -u`
+if [ "$REMOVED" ] 
+then
+	grep -f excludelist tmpqueue >> suckothermsgs.disc \
+	    && grep -vf excludelist tmpqueue > suckothermsgs.queue \
+	    && echo Removed: $REMOVED
+fi

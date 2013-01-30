@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ -z $1 ]
+	then
+	NS=localhost
+else
+	NS=$1
+fi
+
+echo $(basename $0): using name server $NS
+grep zone /etc/named.conf | egrep -v "localhost" | sed "s/.*\"\(.*\)\".*/host -t soa \1 $NS/" | sh | grep "not found"
+# grep file /etc/named.conf | grep -v named.root | sed "s/^.*file.*\//host -t SOA /" | sed "s/\".*$/ localhost/" | sh | grep "not found"

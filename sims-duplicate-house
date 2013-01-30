@@ -1,0 +1,36 @@
+#!/bin/sh
+
+BASEDIR="/Users/magic/Documents/EA Games/The Sims 2/LotCatalog"
+zerolength=10
+
+copies=`echo "$1" | sed "s/[^0-9]//g"`
+
+if [ ! "$copies" ]
+then
+	copies=1
+fi
+
+if [ "$2" ]
+	then
+	model=`basename "$2"`
+	BASEDIR=`dirname "$2"`
+	cd "$BASEDIR"
+else
+	cd "$BASEDIR"
+	model=`ls -rt| tail -1`
+fi
+
+current=`expr $(ls | sed "s/[^0-9]*//g" | sort -n|tail -1)`
+last=`expr $current + $copies`
+
+printf "$model\n"
+
+i=$current
+
+while [ $i -lt $last ]
+	do
+	i=`expr $i + 1`
+	thiscopy="cx_000000$i.package"
+	printf "\t$thiscopy "
+	cp "$model" "$thiscopy" && echo
+done

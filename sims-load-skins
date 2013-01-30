@@ -1,0 +1,22 @@
+#!/bin/sh
+
+DEST="/Applications/Games/Les Sims/GameData/Skins"
+
+SRC=$@
+
+if [ ! $@ ]
+then
+    exit
+fi
+
+find "$SRC" -type f \
+    | egrep -v "/\.DS|/-" \
+    | while read file
+  do
+  echo $file
+  cp -p "$file" "$DEST/"
+done
+
+
+
+#for folder in B *F PajamaF; do ls $folder/*.skn 2>/dev/null; done |sort | while read path; do skin=`basename $path .skn`; cp $path /Applications/Games/Les\ Sims/GameData/Skins/; done

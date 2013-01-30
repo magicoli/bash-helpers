@@ -1,0 +1,32 @@
+#!/bin/sh
+
+LOCAL="/Volumes/Terra1/Showreels/DeWitteCasse/web"
+REMOTE="duke:data/www/magiiic.co.uk/dewittecasse/reels"
+EXCLUDE='--exclude "qt-thumbnails*" --exclude ".DS*" --exclude "disabled" --exclude .qmsubexp'
+
+cd "$LOCAL"
+
+(
+find . -iname "*.m4v"
+find . -iname "*.flv"
+) | while read file
+do 
+	newfile=`echo "$file" | sed "s/-casse-h264//" | sed "s/-casse-flv//" | sed "s/-casse//" | sed "s/-h264//"`
+	if [ "$file" != "$newfile" ]
+		then printf "$file "
+		mv "$file" "$newfile" && echo "renamed"
+	fi
+	qt-thumbnails.sh "$newfile"
+done
+
+rsync -Wavz --progress $EXCLUDE --exclude "*.m4v" --exclude "*.flv" \
+	"$LOCAL/" \
+	"$REMOTE/"
+
+rsync -Wavz --progress $EXCLUDE --exclude "*.m4v" \
+	"$LOCAL/" \
+	"$REMOTE/"
+
+rsync -Wavz --progress $EXCLUDE \
+	"$LOCAL/" \
+	"$REMOTE/"

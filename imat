@@ -1,0 +1,182 @@
+#!/bin/sh
+#
+# Switch network connections without doing the whole stuff...
+# 2002 olivier@van-helden.net
+
+PID=$$
+PGM=`basename $0`
+TMP=~/.$PGM.$PID
+touch $TMP
+STDERR="/dev/null"
+STDOUT="$TMP.OUT"
+touch $STDOUT
+tail -f $STDOUT --pid=$PID 2>/dev/null &
+#TAILPID=$!
+
+help() {
+    usage
+    echo
+    echo "	-R preserve /etc/resolv.conf - don't change it"
+    echo "	-d debug mode"
+    echo "	-q quiet mode"
+    echo
+    echo "sorry, helpman is in a minimalist mood"
+    exit 0
+}
+
+usage() {
+    echo "usage: $PGM [-R] network_name"
+}
+
+for PARAM in $@
+do
+    case $PARAM in
+	--help)
+		help
+		;;
+	-*)
+	    for PARAM in `echo $PARAM|sed "s/-//g"|sed "s/\(.\)/ \1/g"`
+	    do
+	      case $PARAM in
+		h)
+		    help
+		    ;;
+		d)
+#		    echo "Debug mode"
+		    STDERR="&1"
+		    ;;
+		q)
+		    STDOUT="/dev/null"
+	            ;;
+		R)
+		    DONTCHANGERESOLV=true
+		    ;;
+		*)
+		    ERROR=1
+		    echo "wrong parameter -$PARAM"
+	      esac
+	    done
+	    ;;    
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+done
+
+if [ $ERROR ]
+then
+    usage
+    echo "   type '$PGM --help' for more info"
+    rm -f $TMP*
+    exit $ERROR
+fi
+
+sudo umount -at nfs
+(
+case $LASTVAL in
+    kpn)
+#	echo I am at clpb server room
+	sudo umount -at smbfs
+	killall dhcpcd 
+	sudo ifconfig eth0 194.119.255.189 netmask 255.255.255.248
+	sudo route delete default eth0
+	sudo route add default gw 194.119.255.186 eth0
+	sudo cp /etc/resolv.conf.clpb /etc/resolv.conf
+	;;
+    bilan)
+	killall dhcpcd
+	sudo umount -at smbfs
+	sudo ifconfig eth0 194.78.215.237 netmask 255.255.255.240
+	sudo route delete default eth0
+	sudo route add default gw 194.78.215.238
+#	sudo cp /etc/resolv.conf.clpb /etc/resolv.conf
+	;;
+    clpb)
+#	killall dhcpcd
+	sudo umount -at smbfs
+	sudo ifconfig eth0 down
+	sudo dhcpcd -k
+	sudo ifconfig eth0 192.168.2.21 netmask 255.255.255.0
+#	sudo dhcpcd -h l0204001 -t 3 -H
+#	sed "s/\(^search.*\)/\\1 van-helden.net/" /etc/resolv.conf > $TMP
+#	sudo cp $TMP /etc/resolv.conf
+#	sudo cp /etc/resolv.conf.clpb /etc/resolv.conf
+	sudo route delete default eth0
+	sudo route add default gw 192.168.2.10
+#	sudo mount -at smbfs
+#	DONTCHANGERESOLV=true
+	;;
+    sopres)
+	killall dhcpcd
+	sudo umount -at smbfs
+	sudo ifconfig eth0 down
+	sudo dhcpcd -k
+	sudo dhcpcd -h l0204001 -t 3 -H
+	sed "s/\(^search.*\)/\\1 van-helden.net/" /etc/resolv.conf > $TMP
+	sudo cp $TMP /etc/resolv.conf
+#	sudo cp /etc/resolv.conf.clpb /etc/resolv.conf
+#	sudo route delete default eth0
+#	sudo route add default gw 192.168.2.10
+	sudo mount -at smbfs
+	DONTCHANGERESOLV=true
+	;;
+    home)
+#	killall dhcpcd
+	sudo umount -at smbfs
+	sudo ifconfig eth0 down
+	sudo dhcpcd -k
+	sudo dhcpcd
+	sudo hostname toots.charbon.van-helden.net
+	sudo cp /etc/imat.home /etc/resolv.conf
+#	mount /network/armstrong
+#	mount /network/armstrong/.1
+#	sed "s/\(^search.*\)/\\1 van-helden.net/" /etc/resolv.conf > $TMP
+#	sudo cp $TMP /etc/resolv.conf
+	DONTCHANGERESOLV=true
+	;;
+    waterloo)
+#	echo I am at waterloo
+	sudo umount -at smbfs
+	killall dhcpcd
+	sudo ifconfig eth0 10.0.1.193 netmask 255.255.255.0
+	sudo route delete default eth0
+	sudo route add default gw 10.0.1.1 eth0
+	sudo cp /etc/resolv.conf.waterloo /etc/resolv.conf
+	;;
+    *)
+	echo "Don't know where you claim to be"
+	DONTCHANGERESOLV=true
+esac
+
+if [ ! $DONTCHANGERESOLV ]
+then
+    sudo cp /etc/$PGM.search $TMP
+
+    for NAMESERVER in `cat /etc/$PGM.nameservers|cut -d "#" -f 1`
+    do
+	echo -n "    $NAMESERVER"
+	sudo ping -fqc 1 -w 1 $NAMESERVER >/dev/null \
+	    && echo "nameserver $NAMESERVER" >> $TMP \
+		&& echo present \
+	    || echo 
+    done
+    sudo cp $TMP /etc/resolv.conf
+fi
+
+ifconfig|grep "inet addr"|grep -v "127.0.0.1"|sed "s/^ *//" 
+echo hostname:`hostname` 
+cat /etc/resolv.conf
+
+
+) 2>$STDERR >$STDOUT
+
+sleep 1
+
+
+#if [ $TAILTOKILL ]
+#then
+#    kill $TAILTOKILL &>/dev/null
+#    echo
+#fi
+
+rm -f $TMP*

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+psql -Atq -d lemaire -c "
+    SELECT name, city, diamonds, prov_id from companies
+    WHERE publish
+    AND diamonds >= 4
+    ORDER by diamonds desc, prov_id, name
+    "

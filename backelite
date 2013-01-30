@@ -1,0 +1,349 @@
+#!/bin/sh
+#
+# This program does nothing
+#
+
+DEFAULTDEST=/Volumes/EasyRaid/Backup
+DEFAULTTIME=night
+DEFAULTOS=X
+
+PGDATABASE=medoc
+PGUSER=medoc
+PGTABLE=backelite
+psql="psql"
+
+PATH=$PATH:/Library/PostgreSQL/bin
+PATH=$PATH:/usr/local/bin
+PATH=$PATH:`dirname $0`
+export PATH
+
+PID=$$
+PGM=`basename $0`
+TMP=/tmp/.$PGM.$PID
+LOG=/tmp/$PGM
+
+OPTS="alh:p:d:u:H:D:U:-:VQ"
+
+PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
+PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
+    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
+    | sed "s/.\///g" `
+USAGE=`echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g"`
+
+help() {
+    usage
+    echo "	-l list config"
+    echo "	-a add new config (-h host -u user -p path -d destination)"
+    echo "	-h <source host> host of the source path"
+    echo "	-p <source path>"
+    echo "	-u <source user>"
+    echo "	-d <destination> destination path"
+    echo "	-H <host> specify postgresql host"
+    echo "	-U <user> specify postgresql user"
+    echo "	-D <dbname> specify postgresql database name"
+    echo "	-V verbose mode"
+    echo "	-Q quiet mode"
+    exit 0
+}
+
+usage() {
+    echo "usage: $USAGE"
+}
+
+log() {
+    if [ "$LOG" ]
+        then
+        ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
+        ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+        [ "$ERRNUM" ] && shift
+        LOGMESSAGE=$@
+        LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+        [ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+        if [ "$ERRNUM" ]
+            then
+            echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2
+        elif [ "$DEBUG" = "yes" ]
+            then
+            echo "$PGM: $LOGMESSAGE" >&2
+        fi
+    else
+        echo "LOG variable not set"
+        exit 1
+    fi
+}
+
+end() {
+    ERRNUM=$1
+    if [ "$ERRNUM" != "" -a "$ERRNUM" = "`echo $ERRNUM|sed 's/[^0-9]//g'`" ]
+        then
+        EXITNUM=`expr $ERRNUM + 0`
+        shift
+        [ "$#" -gt 0 ]  && log $@
+    else
+        ERRNUM=
+        if [ "$#" -gt 0 ]
+            then
+            log $@
+	elif [ "$DEBUG" = "yes" ]
+	    then
+	    log "End processing"
+        fi
+    fi
+    rm -f $TMP*
+    rm -f $LOG.lock
+    exit $EXITNUM
+}
+
+if [ ! $1 ]
+    then
+    help
+    end
+fi
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		*)
+		    printf $0: illegal option -- $OPTARG
+#		    ERROR=1
+	    esac
+	    ;;
+	a)
+	    ADDCONFIG=true
+	    ;;
+	h)
+	    SOURCEHOST=$OPTARG
+	    ;;
+	p)
+	    SOURCEPATH=$OPTARG
+	    ;;
+	d)
+	    DEFAULTDEST=$OPTARG
+	    ;;
+	u)
+	    SOURCEUSER=$OPTARG
+	    ;;
+	D)
+	    PGDATABASE=$OPTARG
+	    ;;
+	H)
+	    PGHOST=$OPTARG
+	    ;;
+	U)
+	    PGUSER=$OPTARG
+	    ;;
+	H)
+	    help
+	    ;;
+	l)
+	    LISTCONFIG=true
+	    ;;
+	V)
+	    STDERR="&1"
+	    DEBUG=yes
+	    ;;
+	Q)
+	    STDOUT="/dev/null"
+	    DEBUG=no
+	            ;;
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+done 2>/dev/null
+
+shift `expr $OPTIND - 1`
+
+if [ $ERROR ]
+then
+    usage
+    end "$ERROR   type '$PGM --help' for more info"
+fi
+
+confighost() {
+    [ ! $2 ] && return
+    host=$1
+    path=$2
+    user=$3
+
+    log checking $host:$path
+    
+    ping -c 1 -i 1 -q $host >/dev/null 2>/dev/null \
+	|| ping -c 5 -i 1 -q $host >/dev/null 2>/dev/null 
+    result=$?
+    if [ "$result" != "" -a "$result" != "0" ]
+	then
+	log host not reachable, will be configured at next schedulled backup
+	return 4
+    fi
+    log trying rsa authentication
+    ssh $host -o PasswordAuthentication=no ssh -V >/dev/null 2>/dev/null
+    result=$?
+    if [ "$result" != "" -a "$result" != "0" ]
+	then
+	echo "$PGM: $host - could not use rsa auth"
+	echo "$PGM: $host - type remote password to install key"
+	key=`cat ~/.ssh/id_rsa.pub`
+	command="mkdir -p ~/.ssh; echo \"$key\" >> ~/.ssh/authorized_keys2; chmod -R go-rwx ~/.ssh/"
+	log sending rsa key to host $host
+	ssh $host "$command"
+	result=$?
+	if [ "$result" != "" -a "$result" != "0" ]
+	    then
+	    echo "$PGM: $host - could not add rsa key to host, try manually"
+	    return 4 
+	else
+	    support_ssh=true
+	    log rsa key successfully sent
+	fi
+	log trying again rsa auth
+	ssh $host -o PasswordAuthentication=no ssh -V >/dev/null 2>/dev/null
+	result=$?
+	if [ "$result" != "" -a "$result" != "0" ]
+	    then
+	    echo "$PGM: $host does not suport rsa authentication"
+	    return 5
+	else
+	    log $host supports rsa authentication
+	    support_ssh=true
+	    support_rsa=true
+	fi
+    else
+        log $host supports rsa authentication
+	support_ssh=true
+        support_rsa=true
+    fi
+    ssh $host rsync --help | grep "^ -E" >/dev/null 2>&1 \
+	&& support_ext=true
+    if [ "$support_ext" ]
+	then
+	log $host supports extended file format
+    else
+	log $host does not support extended file format
+    fi
+    if [ "$path" = "U" ]
+	then
+	if [ ! "$user" ]
+	    then
+	    end 6 home directory specified as path but user empty
+	fi
+	path=`ssh $host echo ~$user`
+	log source path ~$user expanded to $path
+    fi
+    ssh $host [ -d "$path" ] || log $path not found on $host
+    os=`ssh $host /usr/sbin/system_profiler \
+	| grep -i "^ *System Version:" \
+	| cut -d ":" -f 2- | sed "s/^ *//"
+	`
+    log os $os
+
+    source="$host:$path"
+    return
+}
+
+[ "$psql" ] || psql=psql
+[ "$PGHOST" ] && psql="$psql -h $PGHOST"
+[ "$PGUSER" ] && psql="$psql -U $PGUSER"
+[ "$PGDATABASE" ] && psql="$psql -d $PGDATABASE"
+
+if [ $LISTCONFIG ]
+    then
+    $psql -c "select * from $PGTABLE"
+fi
+
+if [ "$ADDCONFIG" ]
+    then
+    log "add config"
+
+    if [ ! $SOURCEHOST ]
+	then
+	SOURCEHOST=`echo $SOURCE | grep ":" | cut -d ":" -f 1`
+	[ ! $SOURCEHOST ] && end 2 a source host must be specified
+    elif [ ! $SOURCEPATH ]
+	then
+	SOURCEPATH=`echo $SOURCE |grep ":" | cut -d ":" -f 2`
+	if [ $SOURCEUSER ]
+	    then
+	    SOURCEPATH="U"
+	fi
+       	[ ! $SOURCEPATH ] && end 3 a source path must be specified
+    fi
+    log "source host: $SOURCEHOST"
+    log "source path: $SOURCEPATH"
+
+    confighost $SOURCEHOST $SOURCEPATH $SOURCEUSER
+    result=$?
+    if [ "$result" != "" -a "$result" != "0" ]
+	then
+	end $result could not configure $host
+    fi
+    if [ "$path" -a "$path" != "$SOURCEPATH" ]
+	then
+	SOURCEPATH=$path
+    fi
+
+    log "os is $os"
+
+    if [ ! $DESTINATION ]
+	then
+	if [ ! $DEFAULTDEST ]
+	    then
+	    end 8 no default destination root defined
+	fi
+	if [ `echo $SOURCEPATH | grep "^/Network/Servers/"` ]
+	    then
+	    DESTINATION=$DEFAULTDEST/`echo $SOURCEPATH \
+		| sed "s/^\/Network\/Servers\///"`
+	else
+	    log this one $SOURCEPATH
+	    DESTINATION=$DEFAULTDEST/$SOURCEHOST/`echo $SOURCEPATH \
+		| sed "s/^\///"`
+	fi
+    fi
+
+    log destination $DESTINATION
+
+
+    [ "$os" ] && OS="$os"
+    log "OS $OS"
+    [ $support_ssh ] && SUPPORT_SSH=true || SUPPORT_SSH=false
+    [ $support_rsa ] && SUPPORT_RSA=true || SUPPORT_RSA=false
+    [ $support_ext ] && SUPPORT_EXTENDED=true || SUPPORT_EXTENDED=false
+
+    SOURCE="$SOURCEHOST:$SOURCEPATH"
+
+    pgcount=`$psql -Atq -c "select count(*) from $PGTABLE where source='$SOURCE';"`
+    if [ "$pgcount" -gt 0 ]
+	then
+	end 7 "$SOURCE already defined, use -m to modify"
+    else
+	log creating new config for $SOURCE
+    fi
+
+    query="INSERT INTO $PGTABLE (source, sourcehost, sourcepath, destination, os, support_ssh, support_rsa, support_extended) 
+	VALUES ('$SOURCE', '$SOURCEHOST', '$SOURCEPATH', '$DESTINATION', '$OS', $SUPPORT_SSH, $SUPPORT_RSA, $SUPPORT_EXTENDED);"
+    $psql -Atqc "$query"
+    result=$?
+    if [ "$result" != "" -a "$result" != "0" ]
+	then
+	echo "$PGM: psql error while trying to add config"
+	echo "$SOURCE"
+    else
+	echo "$PGM: config successfully added"
+	echo "$SOURCE"
+    fi
+    log psql result $?
+
+    end
+fi
+ 
+end
+

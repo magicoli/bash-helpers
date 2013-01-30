@@ -1,0 +1,63 @@
+#!/bin/sh
+
+MAX=100000
+DAYS=1
+export LC_TIME=fr_FR
+
+PGM=`basename "$0"`
+TMP=/tmp/$PGM.$$
+
+for PARAM in $@
+do
+	if (echo $PARAM | grep "^-[0-9]*$" >/dev/null)
+	then
+		DAYS=`echo $PARAM | sed "s/-//g"`
+	else
+		DOMAINS="$DOMAINS $PARAM"
+	fi
+done
+
+NOW=`date +"%s"`
+SEEK=`expr $NOW + $DAYS \* 86400`
+SEEKVAR=`date -r $SEEK +"%Y%m%d"`
+
+(
+	echo "l=$SEEKVAR"
+	echo "---"
+) \
+	| lynx -post_data http://www.dns.be/fr/home.php?n=42 \
+	| grep -A $MAX "Nom de domaine" \
+	| grep -B $MAX "Table footer" \
+	| grep -v "Table footer" \
+	| grep -v "Nom de domaine" \
+	| sed "s/^  *//"|sed "s/\[[0-9]*\]/   /" \
+	> $TMP.all
+
+if [ "$DOMAINS" ]
+then
+	FILTER=`echo $DOMAINS | sed "s/ /|/g"`
+	cat $TMP.all | egrep "[0-9]*:[0-9]*$|$FILTER" \
+		| grep -v -B 1 ":" \
+		| grep -v "^-*$" \
+		> $TMP.selection
+else
+	mv $TMP.all $TMP.selection
+fi
+
+FOUND=`cat $TMP.selection | grep -v ":" | wc -l | sed "s/^  *//"`
+
+if [ $FOUND -gt 0 ]
+then
+	echo "Subject: $FOUND Domaines libres le `date -r $SEEK +"%A %e %B %Y"`"
+	echo
+	echo "$FOUND Domaines libres le `date -r $SEEK +"%A %e %B %Y"`"
+	if [ "$DOMAINS" ]
+		then
+		echo "Filtre: $DOMAINS"
+	fi
+	echo 
+	cat $TMP.selection
+fi
+
+rm -f $TMP*
+
