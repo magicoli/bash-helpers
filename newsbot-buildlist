@@ -1,3 +1,0 @@
-#!/bin/sh
-
-cat .getsubjects | sed "s/.*\/\(.*\):Sub.*(\(.*\)).*/\\2 \\1/" | sort -nu | cut -d " " -f 2 > .getlist

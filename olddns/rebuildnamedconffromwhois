@@ -1,2 +1,0 @@
-cd /home/ovh/whoisresults
-grep -A 5 Nameservers: * | grep Name: | grep qwentes | cut -d " " -f 1 | sed "s/-$//" | sort -u | sed "s/\(.*\)/host -t SOA \\1 localhost/" | sh | grep "not found" | cut -d " " -f 2 | sed "s/\(.*\)/zone \"\\1\"  \{ type master; file \"models\/parking\";\};/"

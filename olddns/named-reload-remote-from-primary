@@ -1,6 +1,0 @@
-#!/bin/sh
-
-#ssh root@cagliostro 
-/etc/rc.d/init.d/named reload
-ssh root@houdini /etc/rc.d/init.d/named reload
-ssh root@oz /root/bin/named-reload $@

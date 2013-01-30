@@ -1,4 +1,0 @@
-#!/bin/sh
-
-sudo ssh root@calmar -L 110:localhost:110 /opt/clpb/bin/keepalive 
-sudo ssh root@calmar -L 80:localhost:80 /opt/clpb/bin/keepalive 

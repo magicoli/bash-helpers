@@ -1,9 +1,0 @@
-#!/bin/sh
-
-echo Initiating named reload on cagliostro...
-ssh root@cagliostro /etc/rc.d/init.d/named restart
-echo ... on houdini....
-ssh root@houdini /etc/rc.d/init.d/named restart
-echo ... and on oz
-ssh root@oz /root/bin/named-reload $@
-
