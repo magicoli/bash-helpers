@@ -1,2 +1,0 @@
-[ Mon Mar 22 14:42:51 2004 ]: Start eDonkey2000 v0.51.2
-[ Mon Mar 22 14:43:59 2004 ]: End Overnet
