@@ -1,0 +1,142 @@
+#!/bin/sh
+#
+# This program does nothing
+#
+
+PID=$$
+PGM=`basename $0`
+TMP=~/.$PGM.$PID
+
+OPTS="dqhs:-:"
+SYNTAX=`echo $OPTS|sed "s/-://g"|sed "s/\(.*\)/[-\\1] [<args>]/g"|sed "s/\(.\):/] [-\\1 <value>/g"`
+#sed "s/\(.\)/-\\1 /g"|sed "s/-:/<value>/g"
+USAGE="$PGM $SYNTAX"
+
+MAILCMD=/bin/mail
+
+help() {
+    echo $PGM: sends a mail whith some adjustements to headers
+    echo
+    echo Adapted for historical reason to suit the /bin/mail syntax as well as a 
+    echo previous clpb script syntax. 
+    echo Syntax of /bin/mail is recommended and documented, however.
+    echo
+    usage
+    echo "   <args>           one or more recipients, separated by commas or spaces"
+    echo "   -s \"<subject>\"   set the subject of the mail"
+    echo "   -h               display this help"
+    echo "   -thl             (obsolete, ignored)"
+#    echo "   -d               debug mode"
+#    echo "   -q               quiet mode"
+    exit 0
+}
+
+usage() {
+    echo "usage: $PGM $SYNTAX"
+}
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		*)
+		    printf $0: illegal option -- $OPTARG
+#		    usage
+	    esac
+	    ;;
+	s)
+	    SUBJECT=$OPTARG
+	    ;;
+	h)
+	    help
+	    ;;
+	d)
+#		    echo "Debug mode"
+	    STDERR="&1"
+	    ;;
+	q)
+	    STDOUT="/dev/null"
+	            ;;
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+done
+
+SHFT=`expr $OPTIND - 1`
+shift $SHFT
+
+TMPSUB=`echo $1|grep -v "@.*\..*"`
+
+if [ "$TMPSUB" ]
+then
+    SUBJECT="$SUBJECT $TMPSUB"
+    shift
+fi
+
+for ADDR in $@
+  do
+  TO="$TO,$ADDR"
+done
+TO=`echo $TO|sed "s/^,//"`
+
+USER=`id|cut -d "(" -f 2|cut -d ")" -f 1`
+HOSTNAME=`hostname|cut -d "." -f 1`
+
+if [ ! "$DOMAINNAME" ]
+then
+	DOMAINNAME=`domainname`
+	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
+	    then
+	    DOMAINNAME=clpb.be
+	fi
+fi
+P_PID=`ps -ef|grep $$ \
+    | while read user pid ppid foo
+  do
+  if [ $pid = $$ ]
+      then 
+      echo $ppid
+  fi
+done`
+P_CMD=`ps -ef|grep $P_PID \
+    | while read user pid ppid foo date term time command
+  do
+  if [ $pid = $P_PID ]
+      then
+      echo $command
+  fi
+done`
+
+[ "$SUBJECT" ] || SUBJECT="$P_CMD output"
+[ "$TO" ] || TO=$HOSTNAME@$DOMAINNAME
+[ "$FROM" ] || FROM="$USER.$HOSTNAME <$HOSTNAME@$DOMAINNAME>"
+
+if [ $ERROR ]
+then
+    usage
+    echo "   type '$PGM --help' for more info"
+    rm -f $TMP*
+    exit $ERROR
+fi
+
+(
+echo From: $FROM
+echo Subject: $SUBJECT
+echo To: $TO
+echo X-Cl-Process: $0
+echo X-Cl-Process-owner: $USER
+echo X-Cl-Parent: $P_CMD
+echo
+cat
+)
+#| $MAILCMD $TO
+
+rm -f $TMP*

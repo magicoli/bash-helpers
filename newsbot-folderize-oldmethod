@@ -1,0 +1,60 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+rm -f ~/.$PGM.*.tmp
+
+if [ "$@" ]
+then
+	BEGINLIST=$@
+else
+#if [ -f ".getbegin" ]
+	BEGINLIST=`cut -d ":" -f 1 .getbegin`
+#else 
+#	echo "No file to scan"
+#	exit 1
+fi
+
+for FIRST in $BEGINLIST
+do
+	rm -f $TMPFILE
+	touch $TMPFILE || die
+	STRING=`grep "^Subject:" $FIRST`
+	ATTACH=`grep "^begin" $FIRST | cut -d " " -f 3`
+	POS=`echo $STRING | sed "s/\(.*\)(\(.*\)\/\(.*\))/\\2/"`
+	TOTAL=`echo $STRING | sed "s/\(.*\)(\(.*\)\/\(.*\))/\\3/"`
+	if [ "$ATTACH" ]
+	then
+		ATTACH=$ATTACH
+		FINDSTR="^Subject:.*$ATTACH.*(.*/$TOTAL)"
+	else
+		ATTACH=$FIRST
+		FINDSTR=`echo $STRING \
+			| sed "s/\(.*\)(\(.*\)\/\(.*\))/\\1/" \
+			| sed 's/\"/\\\"/g'`
+	fi
+	echo "$FIRST: $ATTACH $TOTAL"
+	echo "   looking for $FINDSTR"	
+	grep "$FINDSTR" $MSGPATH/* > $TMPFILE
+	FOUND=`grep -c "" $TMPFILE`
+	echo "   found $FOUND"
+	if [ $FOUND ]
+	then
+		if [ "$ATTACH" ]
+		then
+			ATTACH=$ATTACH
+		else
+			ATTACH=$FIRST
+		fi
+		mkdir -p $ATTACHPATH/$ATTACH
+		sort -k 12 $TMPFILE | cut -d ":" -f 1 > $ATTACHPATH/$ATTACH/.getlist
+		LIST=`cat $ATTACHPATH/$ATTACH/.getlist`
+		mv $LIST $ATTACHPATH/$ATTACH/ && echo "   Moved to $ATTACHPATH/$ATTACH"
+		mv $TMPFILE $ATTACHPATH/$ATTACH/.getsubjects
+	fi
+	ATTACH=
+	STRING=
+done

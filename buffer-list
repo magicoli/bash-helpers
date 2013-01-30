@@ -1,0 +1,15 @@
+SETTINGS=~/.sitecopyrc
+if [ -z $1 ]; then
+	echo -n "Error: no settings name specified"
+	echo " -- Usage: `basename $0` settings"
+	echo "Currently available settings:"
+	grep "^site" $SETTINGS  | sed "s/site /    /"
+	exit 1 
+elif [ -z `grep -l "^site $1" $SETTINGS` ] ; then 	
+	echo -n "Error - $1: No such settings"
+	echo " -- Usage: `basename $0` settings"
+	echo "Currently available settings:"
+	grep "^site" $SETTINGS  | sed "s/site /    /"
+	exit 2
+fi
+echo "Bon pour l'upload"

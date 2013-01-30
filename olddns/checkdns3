@@ -1,0 +1,42 @@
+#!/bin/sh
+
+DOMPATTERN="[a-zA-Z0-9\.-][a-zA-Z0-9\.-]*\.[a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z]*"
+
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+
+cat $@ \
+	| while read domain
+do
+	printf "$domain"
+	#  echo domain: $domain
+	#  host -t soa $domain
+	#  host -t ns $domain
+
+	whois $domain | egrep -A 3 "Domain servers|Name Server:|Nameservers:" \
+		| egrep "$DOMPATTERN" \
+		| sed "s/.*[^a-zA-Z0-9]\($DOMPATTERN\)/\\1/" \
+		| sed "s/\($DOMPATTERN\)[^a-zA-Z].*/\\1/" \
+		| sort -u \
+		| tr [:upper:] [:lower:] \
+		> $TMP.whois
+
+	host -t ns $domain | sed "s/.*name server //" \
+		| sed "s/\($DOMPATTERN\)[^a-zA-Z].*/\\1/" \
+		| tr "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz" \
+		| sort -u \
+		> $TMP.host
+
+	foundbywhois=`cat $TMP.whois | wc -l | sed "s/[^0-9]//g"`
+	foundbyhost=`cat $TMP.host | wc -l | sed "s/[^0-9]//g"`
+
+	printf " ($foundbywhois/$foundbyhost)\n"
+
+	diff $TMP.whois $TMP.host \
+		| sed "s/^/      /" 
+
+	sleep 1
+	#egrep -v "Nameservers:|Domain servers|^$"
+done
+
+rm $TMP.whois $TMP.host

@@ -1,0 +1,175 @@
+#!/bin/sh
+#
+# This program does nothing
+#
+
+#WAITCMD="while true; do clear; date; sleep 60; done"
+WAITCMD="/opt/clpb/bin/keepalive"
+
+#DEBUG=yes
+LOGGING=yes
+
+PID=$$
+PGM=`basename $0`
+TMP=/tmp/.$PGM.$PID
+LOG=/tmp/$PGM
+
+OPTS="hws:p:w-:"
+SYNTAX=`echo $OPTS|sed "s/-://g"|sed "s/\(.*\)/[-\\1] [<args>]/g"|sed "s/\(.\):/] [-\\1 <value>/g"`
+#sed "s/\(.\)/-\\1 /g"|sed "s/-:/<value>/g"
+USAGE="$PGM $SYNTAX"
+
+
+help() {
+    usage
+    echo
+    echo "	-h display this help"
+    echo "	-d debug mode"
+    echo "	-q quiet mode"
+    echo
+    echo "sorry, helpman is in a minimalist mood"
+}
+
+usage() {
+    echo "usage: $PGM $SYNTAX"
+}
+
+log() {
+    if [ "$LOG" ]
+	then
+	ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
+	ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+	[ "$ERRNUM" ] && shift
+	LOGMESSAGE=$@
+	LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+	[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+	if [ "$ERRNUM" ] 
+	    then
+	    echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2 
+	elif [ "$DEBUG" = "yes" ]
+	    then
+	    echo "$PGM: $LOGMESSAGE" >&2
+	fi
+    else
+	echo "LOG variable not set"
+	exit 1
+    fi
+}
+
+end() {
+    ERRNUM=$1
+    if [ "$ERRNUM" != "" -a "$ERRNUM" = "`echo $ERRNUM|sed 's/[^0-9]//g'`" ]
+        then
+        ERRNUM=`expr $ERRNUM + 0`
+        shift
+        [ "$#" -gt 0 ]  && log "<$ERRNUM>" $@
+    else
+        ERRNUM=
+        if [ "$#" -gt 0 ]
+	    then
+	    log $@
+        fi
+    fi
+    rm -f $TMP*
+    rm -f $LOG.lock
+    chmod -f 666 $LOG*
+    if [ "$DEBUG" = "yes" ]
+        then
+        log "End processing"
+    fi
+    exit $ERRNUM
+}
+
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		*)
+		    printf $0: illegal option -- $OPTARG
+#		    usage
+	    esac
+	    ;;
+	s)
+	    SERVER=$OPTARG
+	    ;;
+	p)
+	    PORT=$OPTARG
+	    ;;
+	w)
+	    COMMAND="$WAITCMD"
+	    ;;
+	h)
+	    help
+	    ;;
+	d)
+#		    echo "Debug mode"
+	    STDERR="&1"
+	    ;;
+	q)
+	    STDOUT="/dev/null"
+	            ;;
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+done
+
+shift `expr $OPTIND - 1`
+
+
+if [ $ERROR ]
+then
+    usage
+    rm -f $TMP*
+    end $ERROR
+fi
+
+if [ ! "$SERVER" ]
+then
+    SERVER=$1
+    shift
+fi
+
+if [ ! "$SERVER" ]
+then
+    end "2 No server specified"
+    usage
+    exit 1
+fi
+
+if [ ! "$PORT" ]
+    then
+    PORT=$1
+    shift
+fi
+
+if [ ! "$PORT" ]
+    then
+    end "3 No port specified"
+fi
+
+if [ $PORT -lt 1024 -a "$UID" -ne "0" ]
+    then
+    end "3 Must be root for port $PORT"
+fi
+
+log opening ssh connection to $SERVER forwarding port $PORT
+
+ssh $SERVER -L $PORT:localhost:$PORT $@ "$COMMAND"
+
+if [ $? -ne 0 ]
+    then
+    end "4 ssh produced an error"
+else
+    end connection closed successfully
+fi
+
+rm -f $TMP*

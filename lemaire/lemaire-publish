@@ -1,0 +1,21 @@
+#!/bin/sh
+
+IFS=','
+
+cat $@ | while read company_id guide_id publish nc p2 c2 p3 c3 p4 c4 p5 c5
+  do
+  echo "$company_id $guide_id"
+  unset fields
+  unset values
+  if [ "$publish" = "1" ]
+      then
+      p=true
+  else
+      p=false
+  fi
+  echo "## $company_id $p "
+  psql -d lemaire <<EOF 
+  UPDATE forms SET publish=$p WHERE company_id=$company_id;
+  UPDATE companies SET publish=$p WHERE company_id=$company_id;
+EOF
+done

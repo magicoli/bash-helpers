@@ -1,0 +1,32 @@
+#!/bin/sh
+
+
+ls *.html | egrep -v "index|^_" \
+	| while read page
+do
+	folder=`basename "$page" .html`
+	about="$folder/_about.txt"
+	printf "$folder"
+	mkdir -p "$folder" && printf " f"  || continue 
+	[ -f "$about" ] && echo " exists" && continue
+
+	cat "$page" \
+		| grep -A 1000 "<h.>"\
+		| grep -B 1000 '<td valign="top" bgcolor="#9bd7ff" height="5"></td>'\
+		| sed "s/<\/*t[dr][^>]*>//g"\
+		| sed "s/	/ /g"\
+		| sed "s/  */ /g"\
+		| sed "s/<\/*p[ |^>]*>/	/g"\
+		| tr "\n" "\t" \
+		| sed "s/			*/		/g" \
+		| tr "\t" "\n" \
+		| sed "s/<\/*[pbiu][ |^>]*>//g"\
+		| sed "s/<\/*div[^>]*>//g"\
+		| sed "s/<\/*table[^>]*>//g"\
+		| sed "s/<\/*font[^>]*>//g"\
+		| sed "s/<\/*div[^>]*>//g" > "$about" \
+		&& printf " $about" || continue
+	rm "$page" && printf " rm"
+	# open -a textmate "$about"
+	echo
+done

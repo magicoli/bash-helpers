@@ -1,0 +1,31 @@
+#!/bin/sh
+
+SRCDIR=/Jobs/lemaire/web-exports
+DUMPDIR=$SRCDIR
+
+PGM=`basename $0 .sh`
+STAMP=`date +"%Y%m%d-%H%M%S"`
+
+echo "$PGM: started" `date`
+
+echo "$PGM: dumping current database"
+pg_dump -a lemaire > $SRCDIR/lemaire-$STAMP.pgdump \
+    && echo "$PGM:   dumped to $SRCDIR/lemaire-$STAMP.pgdump"
+
+echo "$PGM: remove old datas from sql database"
+psql lemaire -c "DELETE FROM restos;"
+
+echo "$PGM: import new datas into sql database"
+psql lemaire -c "COPY restos (id, place_id, city_id, prov_id, id_gidsnummer, name, publication, toque, hotel, hotel_stars, points, crowns, diamonds, nounours, address, zip, city, state, country, ref_derouck, weblink, web, email, web_infos, moduser, moddate, modtime) FROM '$SRCDIR/cnv-lem-restos.tab' 
+      with delimiter '\|' null as '';"
+
+echo "$PGM: update points_order values"
+psql lemaire -c "UPDATE restos SET points_order = points where points > 0;"
+psql lemaire -c "UPDATE restos SET publication  = 2004;"
+
+echo "$PGM: send data to Duke"
+scp $SRCDIR/cnv-lem-restos.tab duke:tmp/
+ssh duke bin/lemaire-import-fm-data.sh
+
+echo "$PGM: finished, archiving"
+mv $SRCDIR/cnv-lem-restos.tab $SRCDIR/lemaire-$STAMP.tab

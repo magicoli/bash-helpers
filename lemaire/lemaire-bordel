@@ -1,0 +1,82 @@
+#!/bin/sh
+
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$ 
+MAX=10
+IFS='|'
+(
+psql -Atq -d lemaire <<EOF 
+SELECT holiday_id, comment from holidays 
+WHERE comment ~* 'nouvel.*an|carnaval'
+EOF
+) | while read holiday_id comment
+  do
+  printf "holid $holiday_id "
+  psql -Atq -d lemaire -c "select company_id from comments where comment_id='$holiday_id';"| while read company_id name
+    do
+    if [ ! "$company_id" ]
+	then
+	break
+    fi
+    printf "cid $company_id "
+    comment_id=`psql -Atq -d lemaire -c "select comment_id from comments where comment_id='$holiday_id';"`
+    if [ ! $comment_id ]
+	then
+	echo
+	break
+    fi
+    printf "comment $comment_id "
+    edition=`psql -Atq -d lemaire -c "select edition from comments where comment_id='$holiday_id';"`
+    printf "edition $edition "
+    if [ $edition != 2005 ]
+	then
+	psql -d lemaire -c "DELETE FROM comments WHERE comment_id='$comment_id'"
+	break
+    fi
+    lang=`psql -Atq -d lemaire -c "select lang from comments where comment_id='$holiday_id';"`
+    if [ ! "$lang" ]
+	then
+	echo
+	break
+    fi
+    printf "lang $lang "
+    (
+    echo 
+    echo "-------------------------" 
+    psql -Atq -d lemaire -c "select guide_id, name from companies where company_id=$company_id"|sed "s/$/ | $lang/"
+    echo
+    (
+	psql -Atq -d lemaire <<EOF
+	SELECT comment_id, lang, comment from comments 
+	WHERE (company_id=$company_id 
+	AND edition=2005
+	AND lang='$lang'
+	)
+	OR comment_id='$comment_id'
+	ORDER by edition, lang, comment_id
+EOF
+	)
+    ) > $TMP
+    lastcomment=`grep "|" $TMP | tail -1 | cut -d "|" -f 1|sed "s/ //g"`
+    printf "last $lastcomment "
+    if [ $lastcomment = $comment_id ]
+	then
+	lines=$(cat $TMP|wc -l)
+	cat $TMP >&2
+	cat $TMP >> ./$PGM.errors
+	if [ $lines -eq 5 ]
+	    then
+	    cat $TMP | grep "^[0-9][0-9][0-9]-[0-9][0-9][0-9]" >> ./$PGM.reenter
+	else
+	    cat $TMP | grep "^[0-9][0-9][0-9]-[0-9][0-9][0-9]" >> ./$PGM.recheck
+	fi
+	psql -d lemaire -c "DELETE FROM comments WHERE comment_id='$comment_id'"
+    else
+	psql -d lemaire -c "DELETE FROM comments WHERE comment_id='$comment_id'"
+	break
+    fi
+  done
+    echo
+done
+
+rm $TMP

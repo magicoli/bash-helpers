@@ -1,0 +1,15 @@
+#!/bin/sh
+
+for number in $@
+	do
+	echo $number
+#	lynx -dump "http://www.infobel.com/belgium/wp/revsearch/result.asp?qcitycode=&qstreetcode=&qnacecode=&qcode=20877912&zip=&number=&street=&qphone=$number&Submit.x=0&Submit.y=0" \
+	lynx -dump "http://www.infobel.com/belgium/wp/revsearch/result.asp?qphone=$number&Submit.x=0&Submit.y=0" \
+		| grep -A 100 "Search Result"\
+		| grep -B 100 "More on Infobel CDRom"\
+		| sed "s/\[[a-zA-Z0-9_\.]*\]//g"\
+		| sed "s/^  *//"\
+		| grep -v "^$" \
+		| egrep -v "^Search Result :|More on Infobel CDRom" \
+		| sed "s/^/   /"
+done

@@ -1,0 +1,83 @@
+#!/bin/sh
+
+# MASTERNS="ns1.spekuloos.be ns2.spekuloos.be"
+
+locals=`(grep nameserver /etc/resolv.conf \
+    | egrep -v "^127.0" \
+    | while read foo ns foo; do
+	echo $ns
+    done
+    echo $LOCALNS
+    )|sort -u
+    `
+
+##
+## Process domains one by one
+##
+for domain in $@
+  do
+  echo $domain
+
+##
+## Query whois for authoritative NS
+##
+  whois=`whois $domain \
+      | egrep -i -A 5 "Domain servers|NameServers:|Name Server:" \
+      | egrep -i -v "Domain servers|NameServers:" \
+      | cut -d "(" -f 1 \
+      | sed "s/.*Name://" \
+      | sed "s/.*Name Server: //" \
+      | while read ns foo ; do
+	  echo $ns|grep '\\..*\\.'
+      done
+      `
+  auth=`for server in $whois
+    do
+    echo "$server"|grep -v none
+    done | sort -fu
+    `
+
+##
+## Query first master for "good" serial
+##
+
+#  goodserial=`  echo $MASTERNS | while read server ignore
+#    do
+#    host -t soa $domain $ns|grep SOA|cut -d " " -f 5
+#  done`
+
+##
+## Querying masters, auth, local... and compare with goodserial
+##
+
+  for server in $MASTERNS
+    do
+    printf "\tMaster\t$server\t"
+    serial=`echo $(host -t soa $domain $server 2>/dev/null \
+	| egrep -A 8 "start of authority|SOA" \
+	| cut -d ";" -f 1 | sed "s/[()]//g" \
+	| sed "s/.*start of authority//" | sed "s/.* SOA//") \
+	| cut -d " " -f 4`
+    echo -e "$serial"
+  done
+  for server in $auth
+    do
+    printf "\tAuth\t$server\t"
+    serial=`echo $(host -t soa $domain $server 2>/dev/null \
+	| egrep -A 8 "start of authority|SOA" \
+	| cut -d ";" -f 1 | sed "s/[()]//g" \
+	| sed "s/.*start of authority//" | sed "s/.* SOA//") \
+	| cut -d " " -f 4`
+    echo -e "$serial"
+  done
+  for server in $locals
+    do
+    printf "\tLocal\t$server\t"
+    serial=`echo $(host -t soa $domain $server 2>/dev/null \
+	| egrep -A 8 "start of authority|SOA" \
+	| cut -d ";" -f 1 | sed "s/[()]//g" \
+	| sed "s/.*start of authority//" | sed "s/.* SOA//") \
+	| cut -d " " -f 4`
+    echo -e "$serial"
+  done
+done

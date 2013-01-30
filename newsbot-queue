@@ -1,0 +1,50 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+#cd $NEWSPATH/Subjects/Msgs
+
+echo Get list of $1 files...
+
+if [ "$1" ]
+then
+	PROCESSED=`ls | grep -v "^nohup" | head -n $1`
+	mkdir -p ../tmpqueue
+	mv $PROCESSED ../tmpqueue
+	cd ../tmpqueue
+else
+	PROCESSED=`ls | grep -v "^nohup"`
+fi
+
+echo -n "Extract subjects from headers... "
+$PGMPATH/newsbot-mklist-subjects
+echo `grep -c "" .getsubject`
+
+echo -n "Guess multipart messages... "
+$PGMPATH/newsbot-mklist-multiples
+echo `grep -c "" .getmultiples`
+
+echo -n "Updating batch list... "
+FILES=`cat .getmultiples | egrep -i "$FILTER" | cut -d " " -f 1`
+
+(for FILE in $FILES
+do
+	echo -n `grep ^Message-ID: $FILE | cut -d " " -f 2 ` 
+	echo -n " " 
+	echo `grep ^$FILE .getmultiples | cut -d " " -f 2-`
+done
+) | sort -u > .getids
+cat .getids >> $NEWSPATH/suckothermsgs.queue
+echo `grep -c "" .getids`
+
+$PGMPATH/newsbot-clearqueue
+
+echo -n "Moving processed headers elsewere... "
+rm -f ../Done/*
+mv $PROCESSED ../Done/ && echo "Done."
+cat .getmultiples >> ../Done/.getmultiples
+cat .getsubject >> ../Done/.getsubject
+cat .getids >> ../Done/.getids

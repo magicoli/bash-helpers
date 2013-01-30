@@ -1,0 +1,95 @@
+#!/bin/sh
+. /etc/dnsbot/dnsbot-rc
+
+for PARAM in "$@"
+do
+	case $PARAM in
+	-c)
+		ACTION=create
+		;;
+	-d)
+		ACTION=delete
+		;;
+	-f)
+		ACTION=form
+		;;
+	-*)
+		ACTION=unknown
+		;;
+	*)
+		DOMAINS="$DOMAINS $PARAM"
+	esac
+done
+
+case "$ACTION" in
+	create)
+		echo "$PGM: so little time, so much things to do"
+		exit 1
+		;;
+	form)
+		for DOMAIN in $DOMAINS
+		do
+			if [ -f $TMPDIR/$DOMAIN.form ]
+			then
+				echo "From: <$MAILFROM>" > $TMPFILE.mail
+				echo "To: <$MAILBOT>" >> $TMPFILE.mail	
+				echo "Bcc: <$MAILFROM>" >> $TMPFILE.mail
+				echo "Subject: Request for $DOMAIN" >> $TMPFILE.mail
+				echo >> $TMPFILE.mail
+				AGENTREF=$DOMAIN
+				cat $TMPDIR/$DOMAIN.form > $TMPFILE
+				MDSTRING="$PASSPHRASE `cat $TMPFILE`"
+				echo $PASSPHRASE > $TMPFILE.md5
+				cat $TMPFILE >> $TMFILE.md5
+				SIGNATURE=`(echo $PASSPHRASE; cat $TMPFILE) \
+					| awk '{gsub("[ \f\r\n\0]",""); printf $0;}' \
+					| md5sum | cut -c 1-32`
+				cat $TEMPLATES/AUTHENTICATION \
+					| sed "s/\[AGENTID\]/$AGENTID/" \
+					| sed "s/\[AGENTREF\]/$AGENTREF/" \
+					| sed "s/\[SIGNATURE\]/$SIGNATURE/" \
+					>> $TMPFILE
+				cat $TMPFILE.mail $TMPFILE | /usr/sbin/sendmail -t \
+					&& echo Sent request for $DOMAIN
+			else
+				echo "$PGM: no existing form $TMPDIR/$DOMAIN.form"
+			fi
+		done
+		;;
+	delete)
+		echo "$PGM: delete must be enabled in pgm code"
+		exit 1
+		for DOMAIN in $DOMAINS
+		do
+			echo "From: <$MAILFROM>" > $TMPFILE.mail
+			echo "To: <$MAILBOT>" >> $TMPFILE.mail
+			echo "Bcc: <$MAILFROM>" >> $TMPFILE.mail
+			echo "Subject: Delete request $DOMAIN" >> $TMPFILE.mail
+			echo >> $TMPFILE.mail
+			AGENTREF=$DOMAIN
+			cat $TEMPLATES/DEL-DOMAIN \
+				| sed "s/\[DOMAIN\]/$DOMAIN/" \
+				| sed "s/\[DATE\]/$DATE/" \
+				> $TMPFILE
+			MDSTRING="$PASSPHRASE `cat $TMPFILE`"
+			echo $PASSPHRASE > $TMPFILE.md5
+			cat $TMPFILE >> $TMFILE.md5
+			SIGNATURE=`(echo $PASSPHRASE; cat $TMPFILE) \
+				| awk '{gsub("[ \f\r\n\0]",""); printf $0;}' \
+				| md5sum | cut -c 1-32`
+			cat $TEMPLATES/AUTHENTICATION \
+				| sed "s/\[AGENTID\]/$AGENTID/" \
+				| sed "s/\[AGENTREF\]/$AGENTREF/" \
+				| sed "s/\[SIGNATURE\]/$SIGNATURE/" \
+				>> $TMPFILE
+			cat $TMPFILE.mail $TMPFILE | /usr/sbin/sendmail -t
+			echo Sent delete request for $DOMAIN
+		done
+		;;
+	*)
+		echo "$PGM: no valid action was specified"
+		echo "usage: $PGM [-c|-d|-f] domain [domain2 domain3...]"
+		echo "	-f	pre-filled form, just sign and send"
+		echo "	-c	create domains"
+		echo "	-d	delete domains"
+esac 

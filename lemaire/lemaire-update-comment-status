@@ -1,0 +1,47 @@
+#!/bin/sh
+
+IFS='|'
+i=0
+
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+
+(
+    cat <<EOF
+BEGIN TRANSACTION;
+
+UPDATE companies
+    SET comment_status_fr=0, comment_status_nl=0, comment_status_other=0;
+
+EOF
+) > $TMP.sql
+
+(
+    psql -Atq -d lemaire <<EOF
+    SELECT DISTINCT on (company_id, lang) comment_id, company_id, lang, status 
+    FROM comments
+    WHERE EDITION=2005
+    AND comment is not null
+    ORDER BY  company_id, lang, comment_id desc;
+EOF
+) | sed "s/ //g" | while read comment_id company_id lang status foo
+  do
+  if [ "$lang" = "fr" -o "$lang" = "nl" ]
+      then
+      field=comment_status_$lang
+  else
+      field=comment_status_other
+  fi
+  i=`expr $i + 1`
+  echo "$company_id $lang $status" >&2
+  echo "UPDATE companies SET $field=$status WHERE company_id=$company_id ;"
+done 2>&1 >> $TMP.sql 
+
+echo >> $TMP.sql
+echo "COMMIT;" >> $TMP.sql
+
+psql -d lemaire -f $TMP.sql && echo Successfull || echo ERROR
+
+rm $TMP.sql
+
+

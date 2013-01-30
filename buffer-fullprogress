@@ -1,0 +1,13 @@
+UPLOADER=sitecopy
+TRACKER=./progress.sh
+TMPPATH=tmp/
+
+UPLOADS=`ps -ax | grep sitecopy | grep -v grep | sed "s/.*-uk //"`
+#UPLOADS=`ps -ax | grep $UPLOADER | grep -v grep | sed s/"^.*$UPLOADER"// | grep -v //`
+for SETTING in $UPLOADS 
+do
+	echo -n "$SETTING: "
+	SESSION=`ls -rt $TMPPATH$SETTING*.log | tail -n 1 | sed s/\.log// | sed s/"tmp\/"//`
+	$TRACKER $SESSION	
+	echo
+done

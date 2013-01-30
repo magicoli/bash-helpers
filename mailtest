@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# v0.1 - (c) CLPB 09/08/2002 - ovh@clpb.be
+#
+# Send stdin as mail, forcing From: header to hostname@clpb.be
+# Also insert a few custom headers (X-Cl-*) to specify the processes
+# that generated the output.
+#
+# Usage: <anycommandthatproducesoutput> | mail-report "<subject>" <dest>
+
+PGM=`basename $0`
+TMP=$HOME/.$PGM.$$
+
+if [ ! "$USER" ]
+then
+	USER=`id|cut -d "(" -f 2|cut -d ")" -f 1`
+fi
+if [ ! "$HOSTNAME" ]
+then
+	HOSTNAME=`hostname`
+fi
+if [ ! "$DOMAINNAME" ]
+then
+	DOMAINNAME=`domainname`
+	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
+	then
+		DOMAINNAME=clpb.be
+	fi
+fi
+
+RETMAIL="$USER%$HOSTNAME <$HOSTNAME@$DOMAINNAME>"
+
+if [ $# -lt 2 ]
+	then
+	echo2 " Usage : $0 [-thl] 'SUBJECT' [-b 'bcc_adrs'] [-c 'cpy_adrs'] dest1 dest2 dest3 ..." 
+	echo2 "       : message must be given on stdin ..."
+	exit 3
+	fi
+
+if [ "x$1" = "x-thl" ]
+    then
+    RETMAIL="`hostname`@clpb.be"
+#    RETMAIL='ovh@clpb.be'
+    shift
+fi
+
+SUB="$1"
+shift
+TRDIR=/prov/tmp/mailtrace
+if [ ! -d $TRDIR ]
+	then
+	UU=`umask`
+	umask 0
+	mkdir $TRDIR
+	umask $UU
+	fi
+TRACE=$TRDIR/mail.$$.trace.4t
+TRSUB=$TRDIR/.trace_ftp_mail.$$.4t
+INPUT=$TRDIR/.input_ftp_mail.$$.t
+
+cat > $INPUT
+echo "$SUB" > $TRSUB
+echo "$@" >> $TRSUB
+cat $INPUT >> $TRSUB
+
+
+echo "From: $RETMAIL" >> $TMP.headers
+echo "To: $@" >> $TMP.headers
+echo "Subject: $SUB" >> $TMP.headers
+
+ps -ef|grep $$ \
+    | while read user pid ppid foo date term time command
+  do
+  if [ $pid = $$ ]
+      then
+      echo X_PPID=$ppid >> $TMP
+      echo X-Cl-process: $command >> $TMP.headers
+      echo "X-Cl-process-owner: $user ($pid $date $time)" >> $TMP.headers
+#	  export CL_PPID
+  fi
+done
+
+
+if [  -f $TMP ] 
+    then
+    . $TMP
+    ps -ef|grep $X_PPID \
+	| while read user pid ppid foo date term time command
+      do
+      if [ $pid = $X_PPID ]
+	  then
+	  echo X-Cl-parent: $command >> $TMP.headers
+	  echo "X-Cl-parent-owner: $user ($pid $date $time)" >> $TMP.headers
+#	  export CL_PPID
+      fi
+    done
+fi
+
+echo >> $TMP.headers
+cat $TMP.headers $INPUT | /usr/bin/mail "$@" # > $TRACE 2>&1  ; rm -f $INPUT ; ) &

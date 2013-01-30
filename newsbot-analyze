@@ -1,0 +1,27 @@
+#!/bin/sh
+
+. ~/.newsbot-rc
+PGM=`basename $0`
+
+echo -n 'Headers:             '; ls $NEWSPATH/Subjects/Msgs | grep -cv "^nohup"
+echo -n ' Last date:           '
+	cd $NEWSPATH/Subjects/Msgs/
+	ls -rt | tail -n 1 | xargs grep "^Date" | cut -d " " -f 2- 
+echo -n ' Subject list:        '; grep -c "" $NEWSPATH/Subjects/tmpqueue/.getsubject
+echo -n ' Subjects multiparts: '; grep -c "" $NEWSPATH/Subjects/tmpqueue/.getmultiples
+echo -n 'Downloaded parts:    '; ls $MSGPATH | grep -c ''
+echo -n ' Last date:           '
+	cd $NEWSPATH/Msgs/
+	echo `ls -rt | tail -n 1 | xargs grep "^Date" | cut -d " " -f 2-`
+echo -n 'Queued messages:     '; grep -c "" $NEWSPATH/suckothermsgs.queue
+echo -n ' Subject list:        '; grep -c "" $MSGPATH/.getsubject
+echo -n ' Subjects multiparts: '; grep -c "" $MSGPATH/.getmultiples 
+echo -n 'Encoded:             '; ls $ATTACHPATH/ | grep -c ""
+echo -n 'Decoded:             '; ls $BINPATH/ | grep -c ''
+echo
+echo 'Disk usage: '
+df -h $MSGPATH $ATTACHPATH $BINPATH | grep -v "^Filesystem" | \
+	sort -u | sed "s/^/ /"
+echo
+echo "Active processes:"
+ps -ax | egrep "newsbot|suck" | egrep -v "grep newsbot|$PGM"

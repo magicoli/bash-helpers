@@ -1,0 +1,47 @@
+#!/bin/sh
+
+PGM=`basename $0`
+TMP=/tmp/$PGM
+
+echo "$PGM: removing previous scripts"
+
+rm -f $TMP.*
+
+i=0
+mkdir -p sites-enabled sites-available sites-bugs || exit
+scp root@glenn:domains-all ./
+scp root@glenn:/etc/apache2/sites-enabled/001-speculoos.net.conf default.conf
+
+ssh root@dave "grep -A 10000 '^<VirtualHost' /usr/local/etc/apache22/httpd.conf" \
+	| while read line
+do
+	echo "$line" | grep "^<VirtualHost" >/dev/null \
+		&& printf "new " && rm -f $TMP && unset servername && i=$(($i + 1)) && j=$(expr 1000 + $i | cut -c 2-) && printf "$j-"
+	echo "$line" | egrep "^[^#]*ServerName" >/dev/null \
+		&& servername=$(echo "$line" | sed "s/.*ServerName //" | sed "s/^www\.//") && printf "$servername "
+	echo "$line" >> $TMP
+	echo "$line" | grep "^</VirtualHost>" >/dev/null \
+		&& mv "$TMP" "sites-available/$j.$servername.conf" && echo "ok"
+done
+
+ls sites-available/ | while read file
+do
+	domain=$(echo "$file" | cut -d "." -f 2- | sed "s/.conf//")
+	sed -i~ "s:CustomLog.*:CustomLog \${APACHE_LOG_DIR}/speculoos.net.access.log combined:" sites-available/$file
+	sed -i~ "s:ErrorLog.*:ErrorLog \${APACHE_LOG_DIR}/speculoos.net.error.log:" sites-available/$file
+	sed -i~ "s:ServerAdmin.*:ServerAdmin webmaster@speculoos.net:" sites-available/$file
+	grep "^$domain$" domains-all && mv "sites-available/$file" sites-enabled/ && echo "$domain"
+done
+
+sed -i~ "s/<VirtualHost .*:80/<VirtualHost *:80/" */*
+rm */*~
+sed -i~ "s/SuexecUserGroup/# SuexecUserGroup/" */*
+rm */*~
+sed -i~ "s:/data/:/:" */*
+rm */*~
+
+for host in $(egrep -i "servername|serveralias" sites-*/*| grep -v "#" | sed "s/.*Server[AN][la][im][ae]s* //"); do echo "$host" ; done | sed "s/^www\.//" | sed "s/^preview\.//" | sed "s/^mail\.//" | sed "s/^intranet\.//" | sed "s/^front[a-z]*\.//" | sed "s/^back[a-z]*\.//" | sed "s/^ssl[a-z]*\.//" | sed "s/^ftp[a-z]*\.//" | sort -u | while read host; do host -t soa $host | grep -i soa; done | grep -v "SOA record glenn.speculoos.net. root.speculoos.net" | cut -d " " -f 1 | while read domain; do mv sites-enabled/*$domain.conf sites-bugs/; done > sites-bugs/BUGLIST 2>&1
+
+cat $BUGLIST
+
+for host in $(egrep -i "servername|serveralias" sites-*/*| grep -v "#" | sed "s/.*Server[AN][la][im][ae]s* //"); do echo "$host" ; done | sed "s/^www\.//" | sed "s/^preview\.//" | sed "s/^mail\.//" | sed "s/^intranet\.//" | sed "s/^front[a-z]*\.//" | sed "s/^back[a-z]*\.//" | sed "s/^ssl[a-z]*\.//" | sed "s/^ftp[a-z]*\.//" | sort -u | while read host; do host -t soa $host | grep -i soa; done | grep "SOA record glenn.speculoos.net. root.speculoos.net" | cut -d " " -f 1 | while read domain; do ls sites-enabled/*$domain.conf >/dev/null || grep -lri $domain sites-enabled/; done

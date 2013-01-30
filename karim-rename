@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cat $@ | while read file
+do
+	newfile=`titlecase "$file" | sed "s/\.Mov/.mov/"`
+	mv "$file" "$newfile" && echo "$newfile"
+done

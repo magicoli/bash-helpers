@@ -1,0 +1,32 @@
+#!/bin/sh
+
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+
+remote=milly:eurostar
+local=~/Jobs/milly/33-Eurostar-TBWA-06
+sources="$local/Eurostar"
+web="$local/15-website/eurostar/eurostar/references"
+
+touch $TMP.rsync
+
+tail -f $TMP.rsync &
+
+rsync -e ssh -Wavz "$remote/" "$local/" \
+    | tee $TMP.rsync \
+    | grep "/" \
+    | egrep -v "/$|^$|^sent|^total size" \
+    | while read path
+  do
+  folder=`basename $(dirname "$path")`
+  echo $folder
+done \
+    | sort -u \
+    | while read folder
+  do 
+  printf "$folder > $folder.zip... "
+#  cd "$sources" 
+#  echo "## $folder" >> $TMP.zip
+#  zip -r "$web/$folder.zip" "$folder/" 2>&1 >> $TMP.zip && printf "done"
+  echo
+done

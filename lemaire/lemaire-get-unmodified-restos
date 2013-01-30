@@ -1,0 +1,34 @@
+#!/bin/sh
+
+if [ "$1" ]
+    then
+    CONDITION="AND prov_id='$1'"
+fi
+
+
+IFS="|"
+PGM=`basename $0`
+
+psql -Atq -d lemaire -c "
+    SELECT
+    DISTINCT ON (c.company_id)
+    c.company_id, c.guide_id, f.modlogin , f.modstamp, c.name, c.street
+    FROM companies as c, forms as f
+    WHERE c.company_id=f.company_id
+    AND c.company_type='Restaurant'
+    AND c.publish=true
+    $CONDITION
+    ORDER BY c.company_id, f.form_id DESC
+    " | sed "s/ *|/|/g" \
+	| while read company_id  guide_id modlogin modstamp name street
+  do
+  if [ ! "$modlogin" -o "$modlogin" = "admin" ]
+      then
+      if [ ! "$name" ]
+	  then
+	  echo "$company_id [CITY?] $street"
+	  break
+      fi
+      echo $company_id $name
+  fi
+done

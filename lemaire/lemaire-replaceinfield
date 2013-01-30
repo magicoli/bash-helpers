@@ -1,0 +1,68 @@
+#!/bin/sh
+
+TABLE=$1
+FIELD=$2
+WRONG=$3
+CORRECT=$4
+
+if [ "$5" -a "$5" != "do" ]
+    then
+    OTHERCONDITIONS="AND $5"
+    CONFIRM=$6
+else
+    CONFIRM=$5
+fi
+
+IFS='|'
+PGM=`basename $0`
+TMP=/tmp/$PGM.$$
+touch $TMP
+
+[ "$TABLE" ] || exit 1
+[ "$FIELD" ] || exit 2
+
+IDFIELD=`psql -d lemaire -c \
+    "SELECT * FROM $TABLE WHERE false" \
+    | head -1 | cut -d "|" -f 1 | sed "s/ //g"
+    `
+
+wrong=`echo $WRONG|sed | sed "s/\'/\\\\\\'/g"`
+
+psql -Atq -d lemaire -c \
+    "SELECT $IDFIELD, $FIELD from $TABLE
+    WHERE $FIELD ~ '$wrong'
+    $OTHERCONDITIONS
+    " | sed "s/ *|/|/g" | grep -v "^$" | grep "|" | while read id field
+  do
+  id=`echo $id | sed "s/ //g"`
+  field=`psql -Atq -d lemaire -c \
+      "SELECT $FIELD from $TABLE
+      WHERE $IDFIELD = '$id'
+      "` 
+  echo "###"
+  echo "$IDFIELD: $id"
+  [ x"$id" != x"" ] || break
+  echo $id >> $TMP
+  printf "$IDFIELD $id: $field "
+  correct=`echo $field|sed "s/$WRONG/$CORRECT/g" | sed "s/\'/\\\\\\'/g"`
+  if [ x"$CONFIRM" = "xdo" ]
+      then 
+      psql -d lemaire -c \
+	  "UPDATE $TABLE 
+	  SET $FIELD='$correct' 
+	  WHERE $IDFIELD='$id'
+	  "
+  else
+      echo "
+	  UPDATE $TABLE 
+	  SET $FIELD='$correct' 
+	  WHERE $IDFIELD='$id'
+	  "
+  fi
+done
+echo "######"
+count=`cat $TMP|wc -l`
+echo total: $count
+
+rm -f $TMP
+

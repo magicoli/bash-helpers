@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ "$1" ]
+	then
+	for name in "$@"
+	do
+		echo "$name"
+	done
+else
+	cat
+fi | while read name
+do
+	echo "$name" \
+	| tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" \
+	| sed "s/__*/_/g"
+	 # \
+	 #  	| tr "\n" "_" | sed "s/__*/_/g" | sed "s/_$//g"
+done

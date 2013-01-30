@@ -1,0 +1,40 @@
+#!/bin/sh
+# To make this script operative on your system, first apply *ONCE*:
+#  chmod 700 lower
+#  rehash
+
+# Alter the general path for BSD vs. Sys V compatibility
+#
+if [ -d /usr/ucb ] ; then
+  PATH=/usr/ucb:$PATH ; export PATH
+fi
+
+if [ "$1" = "-h" ] ; then
+  echo
+  echo "lower, Convert to lower case, Sat 8-Dec-2001"
+  echo
+  echo "Usage:"
+  echo " -h = help"
+  echo " -s = Seven bit Scandinavian conversion"
+  echo " -8 = Eight bit Latin1 Scandinavian conversion"
+  echo
+  echo "E.g. if you have a text file up.txt, apply"
+  echo "cat up.txt | lower > low.txt"
+  echo "  or"
+  echo "lower < up.txt"
+  echo "  or"
+  echo "lower < up.txt > low.txt"
+  echo
+elif [ "$1" = "-s" ] ; then
+  tr 'A-Z\[\]\\' 'a-z\{\}\|'
+elif [ "$1" = "-8" ] ; then
+  tr 'A-ZÅÄÖÜÀÁÈÉËÌÍÏÒÓ' 'a-zåäöüàáèéëìíïòó'
+else
+  tr 'A-Z' 'a-z'
+fi
+
+#-- 
+#Prof. Timo Salmi ftp & http://garbo.uwasa.fi/ archives 193.166.120.5
+#Department of Accounting and Business Finance  ; University of Vaasa
+#mailto:ts@uwasa.fi <http://www.uwasa.fi/~ts/>  ; FIN-65101,  Finland
+#Timo's  FAQ  materials  at   http://www.uwasa.fi/~ts/http/tsfaq.html

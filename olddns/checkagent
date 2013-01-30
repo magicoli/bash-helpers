@@ -1,0 +1,21 @@
+#!/bin/sh
+
+WHOISSERVER=whois.dns.be
+COUNT=0
+MINREQDELAY=1
+MAXREQPERHOUR=90
+
+for DOMAIN in $@
+do
+	COUNT=$(($COUNT + 1))
+	if [ $COUNT -ge $MAXREQPERHOUR ]
+		then
+		COUNT=0
+		sleep 3700
+	else
+		sleep $MINREQDELAY
+	fi
+	echo -n "$DOMAIN: "
+	whois -h $WHOISSERVER $DOMAIN > whoisresults/$DOMAIN
+	cat whoisresults/$DOMAIN | grep -A 1 "^Agent:" | grep "Name:" | cut -d ":" -f 2 | sed "s/ *//"
+done

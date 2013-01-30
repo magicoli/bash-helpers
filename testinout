@@ -1,0 +1,11 @@
+#!/bin/sh 2>$STOUT >$STIN
+
+(
+
+STIN="tmp.test"
+STOUT="/dev/null"
+
+echo test in/out
+
+
+) 2>$STOUT >$STIN

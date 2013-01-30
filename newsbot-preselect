@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [ -f ~/.newsbot-rc ]
+then
+        . ~/.newsbot-rc
+fi
+
+#BINPATH=`dirname $0`
+
+cd $NEWSPATH/Subjects
+/usr/bin/suck $SERVER -m -g -c
+
+cd Msgs/
+
+$PGMPATH/newsbot-queue  
+#$PGMPATH/newsbot-fetch

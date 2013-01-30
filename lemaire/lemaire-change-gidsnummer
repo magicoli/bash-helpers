@@ -1,0 +1,33 @@
+#!/bin/sh
+
+PGM=`basename $0`
+
+if [ ! $2 ]
+then
+    echo $PGM oldid newid
+    exit
+fi
+
+newid=$2
+oldid=$1
+field=guide_id
+
+newexists=`/usr/bin/psql -Atq -d lemaire -c "SELECT count(*) from companies WHERE guide_id='$newid'"`
+
+if [ $newexiswts ]
+then
+    echo $PGM: $2 already exists
+    exit
+fi
+
+
+for table in companies forms shop_orders
+  do
+  printf "$PGM: $oldid to $newid in $table: "
+  echo `/usr/bin/psql -d lemaire -c "UPDATE $table SET $field='$newid' WHERE $field='$oldid';"`
+done
+
+table=restos
+field=id_gidsnummer
+printf "$PGM: $oldid to $newid in $table: "
+echo `/usr/bin/psql -d lemaire -c "UPDATE $table SET $field='$newid' WHERE $field='$oldid';"`

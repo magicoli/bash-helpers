@@ -1,0 +1,25 @@
+#!/bin/sh
+
+IFS="|"
+
+echo "SELECT company_id, points, diamonds 
+FROM restos 
+WHERE points > 0 or diamonds > 0" \
+    | psql -Atq -d lemaire \
+    | grep "|" \
+    | while read company_id points diamonds
+  do
+  firstline="INSERT INTO points (edition, author, company_id"
+  lastline="VALUES (2003, 'guide', $company_id" 
+  if [ "$points" ]
+      then firstline="$firstline, points"
+      lastline="$lastline, $points"
+  fi
+  if [ "$diamonds" ]
+      then firstline="$firstline, diamonds"
+      lastline="$lastline, $diamonds"
+  fi
+  firstline="$firstline)"
+  lastline="$lastline);"
+  echo $firstline $lastline
+done

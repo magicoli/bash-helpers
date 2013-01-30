@@ -1,0 +1,28 @@
+#!/bin/sh
+
+ROOT=/network
+
+for SERVER in clown
+  do
+  mount -t nfs $SERVER:/ $ROOT/$SERVER
+  cat /$ROOT/$SERVER/etc/vfstab|cut -d '#' -f 1|grep ufs\
+  | while read foo foo MOUNT foo
+    do
+    if [ "$MOUNT" != "/" ]
+	then
+	mount -t nfs $SERVER:$MOUNT $ROOT/$SERVER$MOUNT
+    fi
+  done
+  
+done
+
+
+
+#mount -t nfs neon:/maryse /network/clpb.be/neon/maryse
+#mount -t nfs neon:/paul /network/clpb.be/neon/paul
+#mount -t nfs neon:/export/home /network/clpb.be/neon/export/home
+
+#mount -t nfs clown:/crisis/big /network/clpb.be/clown/crisis/big
+#mount -t nfs clown:/crisis/small1 /network/clpb.be/clown/crisis/small1
+#mount -t nfs clown:/crisis/small2 /network/clpb.be/clown/crisis/small2
+#mount -t nfs clown:/export/home /network/clpb.be/clown/export/home

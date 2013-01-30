@@ -1,0 +1,51 @@
+#!/bin/sh
+
+renaming=renaming
+ls *-qmid.mov 2>/dev/null | while read file
+  do newfile=`echo $file | sed "s/[^0-9]//g"`.mov
+  printf "$renaming $file"
+  mv "$file" "$newfile" && echo "$newfile renamed"
+  renaming=
+done
+
+if [ $renaming = "" ]
+    then
+    echo
+fi
+
+function makemovie
+{
+  filename=`echo $1 | sed "s/_/ /g"`
+  if [ -f "$filename.mov" ]
+      then
+      echo "$filename already done"
+      continue
+  fi
+  printf "$filename: "
+  shift
+  files=`for number in $@
+    do
+       printf " $number.mov"
+    done
+    `
+  ls $files >/dev/null
+  if [ $? -eq 0 ]
+      then
+      catmovie -self-contained -auto-chapters-merge -o "$filename.mov" $files 
+      result=$?
+      if [ $result -eq 0 ]
+	  then
+	  printf "ok. "
+	  rm $files && echo "cleaned" || echo "could not clean up"
+      else
+	  echo "could not make the movie"
+      fi
+  fi
+}
+
+cat $@ | while read line
+  do
+  
+  makemovie $line
+done
+

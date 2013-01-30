@@ -1,0 +1,94 @@
+#!/bin/sh
+
+PGM=`basename $0`
+TMP=/tmp/$PGM
+
+echo "#!/bin/sh" > $TMP.nsupdate
+echo "#!/bin/sh" > $TMP.mailboxsync
+echo "#!/bin/sh" > $TMP.secondary
+echo "#!/bin/sh" > $TMP.sendmailconf
+
+(
+echo "/var/mail"
+ssh root@duke ls -d /home/*/email /home/*/data/email
+) > $TMP.mailfolders
+
+echo "building mailbox sync procedure"
+
+echo >> $TMP.mailboxsync
+echo "echo Synchronizing mail folders" >> $TMP.mailboxsync
+echo >> $TMP.mailboxsync
+
+cat $TMP.mailfolders | while read mailfolder
+do
+	echo "rsync --progress -Wavz duke:$mailfolder/ $mailfolder/"
+	# ssh root@dave ls -d "$mailfolder"
+	# echo "result: $?"
+done >> $TMP.mailboxsync
+
+echo "building old server mail config"
+
+ssh root@duke cat /etc/mail/local-host-names /etc/mail/relay-domains | sort -u > $TMP.maildomains
+
+echo >> $TMP.sendmailconf
+echo "echo Synchronizing mail folders" >> $TMP.sendmailconf
+echo >> $TMP.sendmailconf
+
+echo "echo > /etc/mail/local-host-names" >> $TMP.sendmailconf
+echo "cat $TMP.maildomains > /etc/mail/relay-domains" >> $TMP.sendmailconf
+echo "/etc/rc.d/sendmail restart" >> $TMP.sendmailconf
+
+echo "building zone update procedure" 
+
+echo >> $TMP.secondary
+echo "echo updating secondary zone" >> $TMP.secondary
+echo >> $TMP.secondary
+
+echo >> $TMP.nsupdate
+echo "echo standard domains"  >> $TMP.nsupdate
+echo >> $TMP.nsupdate
+
+ssh root@dave grep -l base-template /etc/namedb/master/* | grep -v "~" | while read path
+do
+	domain=`basename "$path"`
+	echo "printf \"$domain \"" >> $TMP.nsupdate
+	echo "cp /etc/namedb/base.zone $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.secondary
+done
+
+echo >> $TMP.nsupdate
+echo "echo custom domains" >> $TMP.nsupdate
+echo >> $TMP.nsupdate
+
+ssh root@dave ls /etc/namedb/migration-* | while read file
+do
+	domain=`basename "$file" | sed "s/migration-//"`
+	echo "printf \"$domain \"" >> $TMP.nsupdate
+	echo "cp $file /etc/namedb/$domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.nsupdate
+	echo "rndc reload $domain" >> $TMP.secondary
+done
+
+echo "sending update batches"
+
+chmod +x $TMP.*
+
+scp $TMP.mailboxsync root@dave:$TMP.mailboxsync
+scp $TMP.nsupdate root@dave:$TMP.nsupdate
+scp $TMP.secondary root@duke:$TMP.secondary
+scp $TMP.maildomains root@duke:$TMP.maildomains
+scp $TMP.sendmailconf root@duke:$TMP.sendmailconf
+
+echo
+echo "ready to go"
+echo
+
+echo "on dave:"
+echo $TMP.mailboxsync
+echo $TMP.nsupdate
+
+echo 
+echo "on duke:"
+echo $TMP.secondary
+echo $TMP.sendmailconf

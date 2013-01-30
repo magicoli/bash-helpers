@@ -1,0 +1,133 @@
+#!/bin/sh
+#
+# v0.1 - (c) CLPB 09/08/2002 - ovh@clpb.be
+#
+# Send stdin as mail, forcing From: header to hostname@clpb.be
+# Also insert a few custom headers (X-Cl-*) to specify the processes
+# that generated the output.
+#
+# Usage: <anycommandthatproducesoutput> | mail-report "<subject>" <dest>
+#
+#
+# Changelog:
+#   WGO 6/9/2002: - used -r option to set return-path (to avoid mail being
+#                   treated as spam)  
+#                 - made -b and -c work using mailx
+#                 - commented out mailtrace
+
+PGM=`basename $0`
+TMP=/tmp/.$PGM.$$
+
+if [ ! "$USER" ]
+then
+	USER=`id|cut -d "(" -f 2|cut -d ")" -f 1`
+fi
+if [ ! "$HOSTNAME" ]
+then
+	HOSTNAME=`hostname`
+fi
+if [ ! "$DOMAINNAME" ]
+then
+	DOMAINNAME=`domainname`
+	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
+	then
+		DOMAINNAME=clpb.be
+	fi
+fi
+
+RETMAIL="<$HOSTNAME@$DOMAINNAME>"
+SENDER="\"$USER.$HOSTNAME\" $RETMAIL"
+
+
+if [ $# -lt 2 ]
+	then
+	echo " Usage : $0 [-thl] 'SUBJECT' [-b 'bcc_adrs'] [-c 'cpy_adrs'] dest1 dest2 dest3 ..." 
+	echo "       : message must be given on stdin and argument order is fixed!"
+	exit 3
+	fi
+
+if [ "x$1" = "x-thl" ]
+    then
+	## Do nothing, option is obsolete
+    shift
+fi
+
+SUB="$1"
+shift
+
+if [ "x$1" = "x-b" ] 
+    then
+    shift
+    BCC="$1"
+    shift
+fi
+
+if [ "x$1" = "x-c" ]
+    then
+    shift
+    CC="$1"
+    shift
+fi
+    
+#  TRDIR=/prov/tmp/mailtrace
+#  if [ ! -d $TRDIR ]
+#  	then
+#  	UU=`umask`
+#  	umask 0
+#  	mkdir $TRDIR
+#  	umask $UU
+#  	fi
+#  TRACE=$TRDIR/mail.$$.trace.4t
+#  TRSUB=$TRDIR/.trace_ftp_mail.$$.4t
+#  INPUT=$TRDIR/.input_ftp_mail.$$.t
+
+DEST=`echo $@|sed "s/ /,/g"|sed "s/,,/,/g"` 
+
+#  cat > $INPUT
+#  echo "$SUB" > $TRSUB
+#  echo "$DEST" >> $TRSUB
+#  [ "$CC" ]  && echo "$CC" >> $TRSUB
+#  [ "$BCC" ] && echo "$BCC" >> $TRSUB
+#  cat $INPUT >> $TRSUB
+
+INPUT=$TMP.input
+cat > $INPUT
+
+echo "From: $SENDER" > $TMP.headers
+echo "To: $DEST" >> $TMP.headers
+[ "$CC" ]  && echo "Cc: $CC"   >> $TMP.headers
+[ "$BCC" ] && echo "Bcc: $BCC" >> $TMP.headers
+echo "Subject: $SUB" >> $TMP.headers
+
+ps -ef|grep $$ \
+    | while read user pid ppid foo date term time command
+  do
+  if [ $pid = $$ ]
+      then
+      echo X_PPID=$ppid >> $TMP
+      echo X-Cl-process: $command >> $TMP.headers
+      echo "X-Cl-process-owner: $user ($pid $date $time)" >> $TMP.headers
+#	  export CL_PPID
+  fi
+done
+
+
+if [  -f $TMP ] 
+    then
+    . $TMP
+    ps -ef|grep $X_PPID \
+	| while read user pid ppid foo date term time command
+      do
+      if [ $pid = $X_PPID ]
+	  then
+	  echo X-Cl-parent: $command >> $TMP.headers
+	  echo "X-Cl-parent-owner: $user ($pid $date $time)" >> $TMP.headers
+#	  export CL_PPID
+      fi
+    done
+fi
+
+echo >> $TMP.headers
+cat $TMP.headers $INPUT | /usr/bin/mailx -r "$RETMAIL" -t 
+
+rm $TMP*

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+PGM=`basename "$0"`
+TMP=$PGM.$$
+
+(
+	if [ -f "playlist.php" ]
+		then
+		cat playlist.php | grep -B 1000 customnames|grep -v customnames | grep -v "\$showotherdircontent"
+		else
+		echo "<?php"
+	fi
+
+	grep "\$showotherdircontent" playlist.php 2>/dev/null || echo "\$showotherdircontent=true;"
+	echo "\$customnames=array("
+	ls *,* | while read file
+	do 
+		printf "\t\"$file\" => '`basename "$file" .mp4`',\n"
+	done
+	printf "\t\"title1\" => '&nbsp',\n"
+	echo ");"
+
+	if [ -f "playlist.php" ]
+		then
+		cat playlist.php | grep -A 1000 customnames| grep -A 1000 ');' | grep -v ');' | grep -v "\$showotherdircontent"
+		else
+		echo "?>"
+	fi
+) | tee "$TMP.playlist"
+
+mv "$TMP.playlist" playlist.php

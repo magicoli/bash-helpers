@@ -1,0 +1,34 @@
+#!/bin/sh
+
+#URL=https://secure-web6.secondlife.com/account/login.php
+URL=https://secondlife.com/account/login.php
+PATH=$PATH:/usr/local/bin
+export PATH
+
+getbalance() {
+FN=$1
+LN=$2
+PW=$3
+
+printf "`date`\t$FN $LN"
+wget --no-directories --no-recursive --no-mirror --no-check-certificate \
+    --quiet --output-document - -P . \
+    --post-data  "form[type]=second-life-member&form[nextpage]=/account/index.php&form[persistent]=Y&form[username]=$FN&form[lastname]=$LN&form[password]=$PW&submit=Submit" \
+    $URL \
+    | grep -A 10 "Linden Dollar balance"  \
+    | egrep "L\\$|US\\$" \
+    | sed "s/.*[> ]\([SLU-]*\\$\)/\\1/" \
+    | cut -d "<" -f 1 \
+    | cut -d "&" -f 1 \
+    | while read line
+  do
+  printf "\t$line"
+done
+printf "\n"
+}
+
+getbalance Magicoli Sims milebou69
+getbalance Gudule Lapointe "1000%26boo"
+getbalance Ocean6 Semaphore milebou69
+getbalance Ocean6 Goldkey milebou69
+getbalance MarieJeanne Pointe milebou69

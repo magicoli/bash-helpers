@@ -1,0 +1,24 @@
+#!/bin/sh
+
+PGM=`basename $0`
+
+provid=$1
+cityid=$2
+name=$3
+numid=$4
+
+if [ ! $name ]
+    then
+    echo "$PGM: provid cityid name [numid]"
+    exit
+fi
+
+if [ ! $numid ]
+then
+    psql -d lemaire -c "SELECT city_id, city_numid, zip, name from cities where name ~* '$name' OR city_id='$cityid'"
+    exit
+fi
+
+psql -Atq -d lemaire -c "UPDATE cities SET city_id='$cityid', prov_id='$provid' WHERE name ~* '$name' AND city_numid='$numid';"
+
+    psql -d lemaire -c "SELECT city_id, city_numid, zip, name from cities where name ~* '$name';"

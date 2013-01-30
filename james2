@@ -1,0 +1,290 @@
+#!/bin/sh
+
+DEST=/data/.james
+USER=mff
+#MAC=0:30:65:10:bb:5a
+AGEMAX=10               ## in minutes
+SERVER=root@armstrong
+METHOD=pop3d
+LOGMAXLINES=1000
+LOGMAXNUMBER=3
+
+PGM=`basename $0`
+LOG=/tmp/$PGM
+TMP=/tmp/$PGM.$$
+
+OPTS="hfra:i:m:u:-:"
+SYNTAX=`echo $OPTS|sed "s/-://g"|sed "s/\(.*\)/[-\\1] [<args>]/g"|sed "s/\(.\):/] [-\\1 <value>/g"`
+#sed "s/\(.\)/-\\1 /g"|sed "s/-:/<value>/g"
+USAGE="$PGM $SYNTAX"
+
+log() {
+    echo "`date +"%b%e %H:%M:%S"` $PGM[$$]: $@" >> $LOG.log
+}
+
+if [ -f $LOG.lock ]
+then
+    log Another $PGM process is running, exiting
+    echo Another $PGM process is running, exiting
+    rm -f $TMP*
+    exit 1
+else
+    touch $LOG.lock
+fi
+
+LOGCURSIZE=`cat $LOG.log|wc -l|sed "s/ //g"`
+
+if [ $LOGCURSIZE -gt $LOGMAXLINES ]
+then
+    log Log too big: $LOGCURSIZE lines, cleaning
+    LOGNUM=$LOGMAXNUMBER
+    while [ $LOGNUM -gt 1 ]
+      do
+      LOGPREV=`expr $LOGNUM - 1`
+      [ -f $LOG.log.$LOGPREV ] && mv $LOG.log.$LOGPREV $LOG.log.$LOGNUM || log  $LOG.log.$LOGPREV could not be renamed as $LOG.log.$LOGNUM
+      LOGNUM=$LOGPREV
+    done
+    mv $LOG.log $LOG.log.1 || log $LOG.log could not be renamed as $LOG.log.1
+fi
+
+log "-- Started"
+
+
+
+help() {
+    usage
+    echo
+    echo "-h display this help"
+    echo "-f|--force ignore age of last update"
+    echo "-a         minimum delay between two updates"
+    echo "-i         ip address"
+    echo "-m         mac address (will find IP with arp values"
+    echo "-u         user name"
+    echo
+    exit 0 
+}
+
+usage() {
+    echo "usage: $PGM [-hdq] [-i <ip>|-m <mac address>] \\"
+    echo "            [-u <user>] [-a <age max>]"
+}
+
+end() {
+    log $@
+    rm -f $TMP* 
+    rm $LOG.lock
+    log "-- Stopped"
+    exit
+}
+
+while getopts $OPTS PARAM
+#for PARAM in $@
+do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		force)
+		    FORCE=yes
+		    AGEMAX=0
+		    ;;
+		*)
+		    printf $0: illegal option -- $OPTARG
+#		    usage
+	    esac
+	    ;;
+#    if [ "$NEXTPARAM" ]
+#    then
+#	echo $NEXTPARAM=$PARAM >> $TMP.param
+#	NEXTPARAM=
+#    else
+#	case $PARAM in
+#	--help)
+#	    help
+#	    ;;
+#	-*)
+#	    for PARAM in `echo $PARAM|sed "s/-//g"|sed "s/\(.\)/ \1/g"`
+#	    do
+#		case $PARAM in
+		h)
+		    help
+		    ;;
+		d)
+		    STDERR="&1"
+		    ;;
+		q)
+		    STDOUT="/dev/null"
+		    ;;
+		f)
+		    FORCE=yes
+		    AGEMAX=0
+		    ;;
+		i)
+#		    NEXTPARAM=IP
+		    IP=$OPTARG
+		    ;;
+		m)
+#		    NEXTPARAM=MAC
+		    MAC=$OPTARG
+		    ;;
+		u)
+#		    NEXTPARAM=USER
+		    USER=$OPTARG
+		    ;;
+		r)
+#		    NEXTPARAM=MAILADDR
+		    MAILADDR=$OPTARG
+		    ;;
+		a)
+#		    NEXTPARAM=AGEMAX
+		    AGEMAX=$OPTARG
+		    ;;
+#		*)
+#		    ERROR=1
+#		    echo "wrong parameter -$PARAM"
+#		esac
+#	    done
+#	    ;;    
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+	esac
+#    fi
+done
+
+shift `expr $OPTIND - 1`
+
+[ -f $TMP.param ] && . $TMP.param
+
+if [ "$SERVER" ]
+    then
+    SSHCMD="ssh $SERVER "
+    log Using ssh $SERVER
+fi
+
+if [ "$IP" ]
+    then
+	    log Got $IP from command line parameters
+else
+    case $METHOD in
+	"mac")
+	    log Using method $METHOD
+	    IP=`$SSHCMD grep $MAC /var/arpwatch/arp.dat|tail -1|cut -f 2`
+	    log Got $IP from arp entries
+	    ;;
+	"qpopper")
+	    log Using method $METHOD
+	    IP=`
+          $SSHCMD cat /var/log/maillog.1 /var/log/maillog |\
+	     grep "login by $USER"|tail -1|\
+	     sed "s/.*from host [^ ]* (\(.*\)).*/\\1/"
+	`
+	    log Got $IP from maillog qpopper entries
+	    if ( grep $IP $LOG.ip 2>/dev/null >/dev/null )
+		then
+		end IP $IP locked exiting
+	    fi
+	    ;;
+	"pop3d")
+	    log Using method $METHOD
+	    IP=`
+	 $SSHCMD cat /var/log/maillog.1 /var/log/maillog|\
+	    grep "Login user=$USER"|tail -1|\
+	    cut -d "[" -f 3 |cut -d "]" -f 1
+	`
+	    log Got $IP from maillog qpopper entries
+	    if ( grep $IP $LOG.ip 2>/dev/null >/dev/null )
+		then
+		end IP $IP locked, exiting
+	    fi
+	    ;;
+	*)
+	    end Method $METHOD not implemented
+    esac
+fi
+
+if [ ! "$IP" ]
+then
+    ERROR=2
+    log "No IP address provided or IP not found"
+fi
+
+if [ $ERROR ]
+then
+    log Error $ERROR 
+    usage >&2
+    echo "   type '$PGM --help' for more info" >&2
+    rm -f $TMP*
+    end Error $ERROR
+fi
+
+log IP $IP available, try to ping it
+
+if ! ($SSHCMD ping -w 2 -c 1 $IP >/dev/null 2>&1)
+then
+    echo $IP > $LOG.ip
+    if [ -f $LOG ]
+    then
+	cat $LOG >> $LOG.history 
+	rm -f $LOG
+    fi
+    end Dynamic IP $IP not responding, giving up until IP changes
+fi
+
+if [ -f $LOG ]
+then
+    DELTAMAX=$(($AGEMAX*60))
+    DELTA=$((`date +%s` - `stat -t $LOG|cut -d " " -f 13`))
+    if [ $DELTA -lt $DELTAMAX ]
+    then
+	end No process, minimum delay between two updates not reached
+    fi
+fi
+
+log Starting sync 
+
+(
+for directory in "~ovh/src" "~$USER/Desktop/Brol/D.K.D." "~$USER/Documents/Eudora\ Folder/Mail\ Folder"
+  do
+  DIRDEST=`echo $DEST/$directory|sed "s/~//g"`
+  if  [ ! -d "$DIRDEST" ]
+      then
+      mkdir -p "$DIRDEST"
+      if  [ -d $DIRDEST ]
+	  then log Directory "$DIRDEST" created
+      else 
+	  log Directorty "$DIRDEST" could not be not created
+      fi
+  fi
+  if  [ -d "$DIRDEST" ]
+      then
+      /usr/bin/rsync -e ssh -W -avz root@$IP:"$directory" "$DIRDEST" |egrep -v "^receiving|^wrote|^total" && \
+      log $directory synchronised || \
+      log Error while synchronising $directory 
+  fi
+done
+) > $TMP.rsync-output 2>&1
+
+if [ "$MAILADDR" -a `cat $TMP.rsync-output | wc -l` -gt 0 ]
+then
+	cat $TMP.rsync-output|mail -s "$PGM output" $MAILADDR
+	echo rsync produced no output, no mail sent
+fi
+
+
+#rsync -e ssh -W -avz root@$IP: $DEST/ |egrep -v "^receiving|^wrote|^total"
+
+echo `date` $IP >> $LOG.xfers
+
+end "-- Finished"
+
+#scp -rp root@$IP:~$USER/Desktop/Brol/D.K.D./ ./Brol/ && echo Docs OK || echo Docs error
+#scp -rp root@$IP:"~mff/Documents/Eudora\ Folder/Mail\ Folder/" ./ && echo Mail OK || echo Mail error
+#scp -rp root@$IP:~$USER/.Trash ./
+#scp -rp root@$IP:~$USER/Desktop/Brol/ ./
+

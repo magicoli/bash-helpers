@@ -1,0 +1,76 @@
+#!/bin/sh
+
+POPSERVER=mail.van-helden.net
+SMTPSERVER=armstrong.van-helden.net
+LINES=5
+
+for PARAM in $@
+do
+    case $PARAM in
+    --*)
+	COMMAND=$PARAM
+	;;
+    -*)
+	OPTION=$PARAM
+	;;
+    *)
+	if [ ! "$LOGIN" ]
+	then
+	    LOGIN=$PARAM
+	else
+	    if [ ! "$NAME" ]
+	    then
+		NAME=$PARAM
+	    fi
+	fi
+	;;
+    esac
+done
+
+if [ ! "$COMMAND" ]
+then
+    COMMAND=--login
+fi
+if [ ! "$NAME" ]
+then
+    NAME=$LOGIN
+fi
+
+case "$COMMAND" in
+    --login)
+	if [ ! "$LOGIN" ]
+	then
+	    echo There must be a login
+	    exit 1
+	fi
+	echo Looking at pop logins - Type interrupt to abort...
+	ssh root@$POPSERVER ls -la /var/spool/mail/$LOGIN
+	ssh root@$POPSERVER tail -f /var/log/maillog | grep "login by $LOGIN"
+	;;
+    --pop)
+	echo Last messages received:
+	ssh root@$POPSERVER /home/magic/bin/james
+	;;
+    --smtp)
+	echo Last messages sent:
+	ssh root@$SMTPSERVER /home/magic/bin/james
+	;;
+    --snif)
+	echo Last secrets found:
+	ssh root@$SMTPSERVER "ls -l .ettercap/|grep "Collected-Passwords"|cut -c 44-|tail; egrep -v 'webpipe|194.7.187.194|^$|mff' \
+	    /root/.ettercap/*Collected-Passwords*"
+	;;
+#    --both)
+#	echo "## Getting last events from $SMTPSERVER"
+#	ssh root@$SMTPSERVER grep "$NAME" /var/log/maillog \
+#	    | tail -n $LINES | cut -d ":" -f 4 \
+#	    | sed "s/\(.*\)/grep \\1 \/var\/log\/maillog/"  \
+#	    | sh | grep "\<to="
+#	echo And now what\'s up on pop
+#	ssh root@$POPSERVER grep \"login by $LOGIN\" /var/log/maillog \
+#	    | tail -n $LINES
+#	;;
+    *)
+	echo You must choose to watch something
+	echo $COMMAND not valid
+esac

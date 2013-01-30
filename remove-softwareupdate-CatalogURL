@@ -1,0 +1,10 @@
+#!/bin/sh
+
+sudo nicl . delete /mcx_cache
+sudo nicl . delete /config/mcx_cache
+
+# sudo rm -rf "/Library/Managed Preferences"
+# (instead, find com.apple.SoftwareUpdate.plist occurrences in theere
+# and
+# sudo defaults delete "com.apple.SoftwareUpdate" CatalogURL
+

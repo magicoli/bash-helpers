@@ -1,0 +1,21 @@
+#!/bin/sh
+
+PGM=`basename $0`
+
+if [ ! $2 ]
+then
+    echo $PGM oldid newid
+    exit
+fi
+
+newid=$2
+oldid=$1
+
+newexists=`/usr/bin/psql -Atq -d lemaire -c "SELECT count(*) from cities WHERE city_id='$newid'"`
+
+for table in ads cities companies forms restos shop_orders
+  do
+  printf "$PGM: $oldid to $newid in $table: "
+  echo `/usr/bin/psql -d lemaire -c "UPDATE $table SET city_id='$newid' WHERE city_id='$oldid';"`
+done
+

@@ -1,0 +1,30 @@
+#!/bin/sh
+
+oldname=$1
+newnamefr=$2
+newnamenl=$3
+
+if [ ! "$3" ]
+then
+    if [ ! "$1" ]
+	then
+	searchstring=" -|- "
+    else
+	searchstring=$1
+    fi
+    (
+	psql -Atq -d lemaire -c \
+	    "SELECT city1_name from cities WHERE city1_name ~* '$searchstring'"
+	psql -Atq -d lemaire -c \
+	    "SELECT city2_name from cities where city2_name ~* '$searchstring'"
+	psql -Atq -d lemaire -c \
+	    "SELECT city3_name from cities where city3_name ~* '$searchstring'"
+    ) | sort -u | sed "s/^/\"/" | sed "s/$/\"/"
+    exit
+fi
+
+for field in name city1_name city2_name city3_name
+do
+  psql -d lemaire -c "UPDATE cities set $field='$3' where $field='$1' AND lang='nl';"
+  psql -d lemaire -c "UPDATE cities set $field='$2' where $field='$1';"
+done

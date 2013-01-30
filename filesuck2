@@ -1,0 +1,130 @@
+#!/bin/sh
+#
+# Recursive scan from the given URL to download all files of given type in the
+# links. May overload the disk!
+
+
+PID=$$
+PGM=`basename $0`
+TMP=~/.$PGM.$PID
+touch $TMP
+STDERR="/dev/null"
+STDOUT="$TMP.OUT"
+touch $STDOUT
+tail -f $STDOUT --pid=$PID 2>/dev/null &
+URLS=~/.$PGM.urls
+FILES=~/.$PGM.files
+SEEN=~/.$PGM.scanned
+GOT=~/$PGM.fetched
+
+DOWNLOADFOLDER=~/Motivation/kiss
+EXT=lzh
+
+help() {
+    usage
+    exit 0
+}
+
+usage() {
+    echo "usage: $PGM --lzh URL"
+}
+
+for PARAM in $@
+do
+    case $PARAM in
+	--help)
+		help
+		;;
+	--lzh)
+		EXT=lzh
+		;;
+	--*)
+		      echo unknown parameter $PARAM
+		      ERROR=1
+		      ;;
+	-*)
+	    for PARAM in `echo $PARAM|sed "s/-//g"|sed "s/\(.\)/ \1/g"`
+	    do
+	      case $PARAM in
+		h)
+		    help
+		    ;;
+		d)
+#		    echo "Debug mode"
+		    STDERR="&1"
+		    ;;
+		q)
+#                   quiet mode
+		    STDOUT="/dev/null"
+	            ;;
+		*)
+		      echo unknown parameter -$PARAM
+		      ERROR=1
+	      esac
+	    done
+	    ;;    
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+	    (
+		cat $SEEN $URLS | grep "^$PARAM\$" \
+		    && echo seen || echo $PARAM >> $URLS
+	    ) >/dev/null 2>&1
+    esac
+done
+
+if [ $ERROR ]
+then
+    usage
+    echo "   type '$PGM --help' for more info"
+    rm -f $TMP*
+    exit $ERROR
+fi
+
+case $LASTVAL in
+    help)
+	help
+	exit 0
+	;;
+esac
+
+(
+cd $DOWNLOADFOLDER
+
+for URL in `cat $URLS`
+do
+  grep "^$URL\$" $SEEN >/dev/null && SKIP=YES || SKIP=
+
+  if [ "$SKIP" ]
+  then
+      echo Skipping $URL
+  else
+      echo Scanning $URL
+      LINKS=`lynx -dump $URL |grep " *[0-9]*\. http" \
+           | sed "s/.*http:\/\//http:\/\//"|cut -d "#" -f 1`
+      echo $URL >> $SEEN
+  fi
+  for LINK in $LINKS
+  do
+    cat $SEEN $FILES $URLS|grep "^$LINK\$" && FOUND=YES || FOUND=
+    if [ "$FOUND" ]
+    then
+	echo Found and skip $LINK
+    else
+	echo Found $LINK
+	echo $LINK|grep -i "\.$EXT\$" \
+	    && echo $LINK >> $FILES \
+	    || echo $LINK >> $URLS
+    fi
+  done
+done
+
+) #2>$STDERR # >$STDOUT
+
+#if [ $TAILTOKILL ]
+#then
+#    kill $TAILTOKILL &>/dev/null
+#    echo
+#fi
+
+rm -f $TMP*
