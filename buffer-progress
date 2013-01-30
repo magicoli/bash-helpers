@@ -1,5 +1,0 @@
-SITE=$1
-TOTAL=`grep ^item ~/tmp/$SITE.list | grep -cv /$`
-COMPLETED=`egrep -c "^Uploading.*done.$" ~/tmp/$SITE.log`
-echo -n "$COMPLETED items uploaded / $TOTAL - "
-tail -n 1 ~/tmp/$SITE.log 

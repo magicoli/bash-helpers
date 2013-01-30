@@ -1,5 +1,0 @@
-#!/bin/sh
-
-ssh root@cagliostro /root/bin/newdomain $@
-ssh root@houdini /root/bin/newdomain $@
-ssh root@oz /root/bin/newdomain $@

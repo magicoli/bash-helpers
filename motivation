@@ -1,4 +1,0 @@
-MOT_DIR=/network/qwentes/produits/000_1BOX/MOTIVATION
-cp -r $MOT_DIR $(MOT_DIR)-bkp
-ls $MOT_DIR/* -pd | grep -v "/$" | xargs rm
-rm -rf $MOT_DIR/*/*

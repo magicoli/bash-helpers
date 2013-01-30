@@ -1,4 +1,0 @@
-#!/bin/sh
-
-    nohup ./uploadbuffer.sh $@ &
-    echo "Full report will be sent by mail to bufferbot admins"
