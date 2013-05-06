@@ -1,0 +1,86 @@
+#!/bin/sh
+
+# Authors:	Olivier van Helden
+#
+# Reditribution, modification and use are authorized, provided that 
+# this disclaimer, the authors name and Speculoos web address stay in the redistributed code
+
+PID=$$
+[ "$PGM" ] || PGM=`basename $0`
+TMP=/tmp/.$PGM.$PID
+LOG=/tmp/$PGM.log
+DATA="$HOME/.$PGM"
+
+COLOR_HIGHLIGHT="[1;31;40m"
+COLOR_NORMAL="[0;;m"
+[ ! $ENDSUCCESS ] && ENDSUCCESS="Succeed"
+[ ! $ENDFAILED ] && ENDFAILED="Failed"
+
+SAY=$(which say)
+
+BINDIR=$(dirname "$0")
+BASEDIR=$(dirname "$BINDIR")
+PATH=$BINDIR:$PATH
+
+help() {
+	echo "$PGM help"
+	echo "$HELP"
+}
+
+USAGE="$PGM $SYNTAX"
+usage() {
+	echo "usage: $USAGE"
+}
+
+log() {
+	if [ "$LOG" ]
+		then
+		ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
+		ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+		[ "$ERRNUM" ] && shift
+		LOGMESSAGE=$@
+		LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+		if [ "$ERRNUM" ] 
+			then
+			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2 
+			[ $SAY ] && say "Error $ERRNUM: $LOGMESSAGE"
+		elif [ "$DEBUG" = "yes"  ]
+			then
+			# [ $SAY ] && say "$LOGMESSAGE" &
+			echo "$PGM: $LOGMESSAGE" >&2
+		fi
+	else
+		echo "LOG variable not set"
+		exit 1
+	fi
+}
+
+end() {
+	if [ $1 ]
+		then
+		expr $1 + 0 >/dev/null 2>/dev/null && ERRNUM=$1 || ERRNUM=0
+	else
+		ERRNUM=0
+	fi
+
+	if [ "$ERRNUM" -ne 0 ]
+		then
+		# ERRNUM=`expr $ERRNUM + 0`
+		shift
+		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDFAILED
+		log $ERRNUM "$endMessage"
+	else
+		ERRNUM=0
+		[ "$1" = "0" ] && shift
+		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDSUCCESS
+		log "$endMessage"
+		[ $SAY ] && say "$endMessage" &
+	fi
+
+	rm -f $TMP*
+	rm -f $LOG.lock
+	# [ -f $LOG ] && chmod -f 666 $LOG*
+
+	exit $ERRNUM
+}
