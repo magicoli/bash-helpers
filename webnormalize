@@ -10,9 +10,12 @@ else
 	cat
 fi | while read name
 do
-	echo "$name" \
+    echo "$name" \
 	| tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" \
-	| sed "s/__*/_/g"
-	 # \
-	 #  	| tr "\n" "_" | sed "s/__*/_/g" | sed "s/_$//g"
+	| sed "s|[\`´'^]||g" \
+	| sed "s|[^a-zA-Z0-9_\./-]*||g" \
+	| sed "s|__*|_|g"
 done
+
+	 # \
+	 #  	| tr "\n" "_" | sed "s|__*|_|g" | sed "s|_$||g"
