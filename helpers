@@ -14,8 +14,8 @@ DATA="$HOME/.$PGM"
 
 COLOR_HIGHLIGHT="[1;31;40m"
 COLOR_NORMAL="[0;;m"
-[ ! $ENDSUCCESS ] && ENDSUCCESS="Succeed"
-[ ! $ENDFAILED ] && ENDFAILED="Failed"
+[ ! "$ENDSUCCESS" ] && ENDSUCCESS="Succeed"
+[ ! "$ENDFAILED" ] && ENDFAILED="Failed"
 
 SAY=$(which say)
 
@@ -45,7 +45,7 @@ log() {
 		if [ "$ERRNUM" ] 
 			then
 			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2 
-			[ $SAY ] && say "Error $ERRNUM: $LOGMESSAGE"
+			[ $SAY ] && say "Error $ERRNUM: $LOGMESSAGE" 2>/dev/null &
 		elif [ "$DEBUG" = "yes"  ]
 			then
 			# [ $SAY ] && say "$LOGMESSAGE" &
@@ -76,7 +76,7 @@ end() {
 		[ "$1" = "0" ] && shift
 		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDSUCCESS
 		log "$endMessage"
-		[ $SAY ] && say "$endMessage" &
+		[ $SAY ] && say "$endMessage" 2>/dev/null &
 	fi
 
 	rm -f $TMP*
