@@ -1,0 +1,13 @@
+sudo apt-get install aptitude git emacs
+aptitude install curl
+aptitude install openssh-server 
+aptitude install apache2 apache2-mpm-prefork apache2-suexec apache2-utils apache2.2-bin apache2.2-common libapache2-mod-php5 libapache2-mod-upload-progress
+aptitude install php5-curl php5-gd php5-gmp make php5-dev php-pear php5-auth-pam php5-imagick php5-mysql php5-pgsql php-pear
+add-apt-repository ppa:team-xbmc/ppa
+# must still find sources for plex
+aptitude install plexmediaserver
+aptitude install xbmc
+aptitude install build-essential subversion git-core yasm libgpac-dev libdirac-dev libgsm1-dev libschroedinger-dev libspeex-dev libvorbis-dev libopenjpeg-dev libdc1394-22-dev libsdl1.2-dev zlib1g-dev texi2html libfaac-dev libfaad-dev libmp3lame-dev libtheora-dev libxvidcore4-dev libopencore-amrnb-dev libopencore-amrwb-dev libvpx-dev libfreetype6-dev frei0r-plugins-dev librtmp-dev libaacplus-dev libx264-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev
+aptitude install ffmpeg
+aptitude install transmission-cli 
+aptitude install forked-daapd
