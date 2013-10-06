@@ -23,6 +23,31 @@ BINDIR=$(dirname "$0")
 BASEDIR=$(dirname "$BINDIR")
 PATH=$BINDIR:$PATH
 
+[ ! "$SECTION" ] && SECTION=default
+[ ! "$PGMDOMAIN" ] && PGMDOMAIN=com.magiiic
+defaults=$(which defaults)
+if [ $defaults ]
+	then
+	defaults read "$PGMDOMAIN.$PGM" 2>/dev/null | grep "=" | sed "s/^ *//" | sed "s/ *= */=/" > "$TMP.prefs" 
+	defaults read "$PGMDOMAIN.$PGM" $SECTION 2>/dev/null | grep "=" | sed "s/^ *//" | sed "s/ *= */=/" >> "$TMP.prefs" 
+	. "$TMP.prefs"
+	rm "$TMP.prefs"
+else
+	ini_parser="$(which ini_parser)"
+	[ "$ini_parser" ] && . $ini_parser 2>/dev/null
+
+	for ini in /etc/${PGM}.ini ~/etc/${PGM}.ini ~/.${PGM}.ini
+	do
+		[ -f "$ini" ] && ini_parser "$ini"
+	done
+	[ "$SECTION" ] && ini_section_$SECTION 2>/dev/null
+	[ "$job" ] && ini_section_$job 2>/dev/null
+fi
+for prefs in /etc/${PGM} ~/etc/${PGM} ~/.${PGM}
+do
+	[ -f "$prefs" ] && . "$prefs"
+done
+
 help() {
 	echo "$PGM help"
 	echo "$HELP"
