@@ -13,6 +13,7 @@ for file in "$@"
 do
 	if [ ! -f "$file" ]
 		then
+	    file=$(echo "$file" | sed "s/\/$//")
 		if [ ! -d "$file" ]
 			then
 			echo "$PGM: could not find $file" >&2
@@ -22,9 +23,14 @@ do
 		    echo "$PGM: stamping directory" >&2
 		fi
 	fi
-	filename=`echo $file | sed "s/\.[^.]*$//" | sed "s/-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]$//"`
-	extension=`echo $file | grep "\." | sed "s/.*\(\.[^.]*$\)/\\1/"`
-
+	if [ ! -d "$file" ]
+		then
+		filename=`echo $file | sed "s/\.[^.]*$//" | sed "s/-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]$//"`
+		extension=`echo $file | grep "\." | sed "s/.*\(\.[^.]*$\)/\\1/"`
+	else
+		filename="$file"
+		extension=""
+	fi
 	case $OS in
 		"Darwin"|"FreeBSD")
 		modtime=`stat -s "$file" 2>/dev/null | sed "s/.*st_mtime=\([0-9]*\) .*/\\1/" `
