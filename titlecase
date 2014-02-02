@@ -3,7 +3,7 @@
 export PATH=$(dirname "$0"):$PATH
 
 string=`echo $@ \
-	| tr [:upper:] [:lower:] \
+	| tr "[:upper:]" "[:lower:]" \
 	| tr "áàâäéèêëíìîïóòôöúùûüç" "aaaaeeeeiiiioooouuuuc" \
 	| sed "s/[œŒ]/oe/g" \
 	| urlcoder -e \
@@ -13,14 +13,23 @@ string=`echo $@ \
 	| sed "s/\%[A-Z0-9][A-Z0-9]//g"
 `
 
+for word in $string
+do
+	upper=$(echo $word | cut -c 1 | tr "[:lower:]" "[:upper:]")
+	lower=$(echo $word | cut -c 2- | tr "[:upper:]" "[:lower:]")
+	printf "$space$upper$lower"
+	space=" "
+done
+echo
+
 # | tr "ÁÀÂÄÉÈÊÊÍÌÎÏÓÒÔÖÚÙÛÜÇ" "AAAAEEEEIIIIOOOOUUUUC" \
 
-/usr/bin/python -c "import sys; print sys.argv[1].title()" "$string" \
-	| sed "s/ \././g" \
-	| sed "s/  */ /" \
-	| sed "s/\.Mov/.mov/" \
-	| sed "s/\.Jpg/.jpg/" 
-
-#echo "$string"
-
-# /usr/bin/python -c "import sys; print sys.argv[1].title()" "$1" \
+# /usr/bin/python -c "import sys; print sys.argv[1].title()" "$string" \
+# 	| sed "s/ \././g" \
+# 	| sed "s/  */ /" \
+# 	| sed "s/\.Mov/.mov/" \
+# 	| sed "s/\.Jpg/.jpg/" 
+# 
+# #echo "$string"
+# 
+# # /usr/bin/python -c "import sys; print sys.argv[1].title()" "$1" \
