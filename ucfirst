@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export PATH=$(dirname "$0"):$PATH
+
+upper=$(echo $@ | cut -c 1 | tr "[:lower:]" "[:upper:]")
+lower=$(echo $@ | cut -c 2- | tr "[:upper:]" "[:lower:]")
+
+echo "$upper$lower"
