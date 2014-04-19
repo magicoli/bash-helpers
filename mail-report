@@ -154,7 +154,7 @@ then
 	DOMAINNAME=`domainname`
 	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
 	then
-		DOMAINNAME=spekuloos.be
+		DOMAINNAME=magiiic.com
 	fi
 fi
 
