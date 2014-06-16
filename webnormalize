@@ -14,7 +14,8 @@ do
 	| tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" \
 	| sed "s|[\`´'^]||g" \
 	| sed "s|[^a-zA-Z0-9_\./-]*||g" \
-	| sed "s|__*|_|g"
+	| sed "s|__*|_|g" \
+	| sed "s/_*--*_*/-/g"
 done
 
 	 # \
