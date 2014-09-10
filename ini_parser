@@ -2,18 +2,26 @@
 
 ini_parser ()
 {
-    ini="$(<$1)"                # read the file
+	ini=$(cat $1 \
+		| sed "s/[[:blank:]]*=[[:blank:]]*/=/g" \
+		| sed "s/^[[:blank:]]*;.*//" \
+		| sed "s/^[[:blank:]]*;.*//" \
+		| egrep -v "^[[:blank:]]*;//")
+    # ini="$(<$1)"                # read the file
+		# echo "$ini"
+		# return
+    # ini="$(<$1)"                # read the file
     ini="${ini//[/\[}"          # escape [
     ini="${ini//]/\]}"          # escape ]
     IFS=$'\n' && ini=( ${ini} ) # convert to line-array
     ini=( ${ini[*]//;*/} )      # remove comments with ;
-    ini=( ${ini[*]/\    =/=} )  # remove tabs before =
-    ini=( ${ini[*]/=\   /=} )   # remove tabs be =
+    # ini=( ${ini[*]/\    =/=} )  # remove tabs before =
+    # ini=( ${ini[*]/=\    /=} )   # remove tabs be =
     ini=( ${ini[*]/\ =\ /=} )   # remove anything with a space around =
     ini=( ${ini[*]/#\\[/\}$'\n'ini_section_} ) # set section prefix
-    ini=( ${ini[*]/%\\]/ \(} )    # convert text2function (1)
-    ini=( ${ini[*]/=/=\( } )    # convert item to array
-    ini=( ${ini[*]/%/ \)} )     # close array parenthesis
+    ini=( ${ini[*]/%\\]/\(\) \{} )    # convert text2function (1)
+    # ini=( ${ini[*]/=/=\( } )    # convert item to array
+    # ini=( ${ini[*]/%/ \)} )     # close array parenthesis
     ini=( ${ini[*]/%\\ \)/ \\} ) # the multiline trick
     ini=( ${ini[*]/%\( \)/\(\) \{} ) # convert text2function (2)
     ini=( ${ini[*]/%\} \)/\}} ) # remove extra parenthesis
