@@ -7,7 +7,7 @@
 
 PID=$$
 [ "$PGM" ] || PGM=`basename $0`
-[ "$TMP" ] || TMP=/tmp/.$PGM.$PID
+[ "$TMP" ] || TMP=/tmp/$PGM.$PID
 SPC=$(echo "$PGM" | sed "s/./ /g")
 LOG=/tmp/$PGM.log
 DATA="$HOME/.$PGM"
