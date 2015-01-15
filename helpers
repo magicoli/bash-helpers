@@ -9,7 +9,7 @@ PID=$$
 [ "$PGM" ] || PGM=`basename $0`
 [ "$TMP" ] || TMP=/tmp/$PGM.$PID
 SPC=$(echo "$PGM" | sed "s/./ /g")
-LOG=/tmp/$PGM.log
+LOG=$TMP.log
 DATA="$HOME/.$PGM"
 
 COLOR_HIGHLIGHT="[1;31;40m"
@@ -17,7 +17,7 @@ COLOR_NORMAL="[0;;m"
 [ ! "$ENDSUCCESS" ] && ENDSUCCESS="Succeed"
 [ ! "$ENDFAILED" ] && ENDFAILED="Failed"
 
-SAY=$(which say)
+#SAY=$(which say)
 
 BINDIR=$(dirname "$0")
 BASEDIR=$(dirname "$BINDIR")
@@ -41,7 +41,7 @@ log() {
 		[ "$ERRNUM" ] && shift
 		LOGMESSAGE=$@
 		LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
-		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG)
 		if [ "$ERRNUM" ] 
 			then
 			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2 
