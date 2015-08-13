@@ -212,7 +212,6 @@ echo "Subject: $SUBJECT" >> $TMP.headers
 echo "X-PPID: $PPID" >> $TMP.headers
 echo "X-Parent-Process: $parentcmd" >> $TMP.headers
 echo "X-Parent-User: $parentusr" >> $TMP.headers
-echo "Content-Type: text/html" >> $TMP.headers
 
 # ps -ef|grep $$ \
 #     | while read user pid ppid foo date term time command
@@ -240,12 +239,19 @@ echo "Content-Type: text/html" >> $TMP.headers
 #     done
 # fi
 
+cat > $TMP.input
+grep -q . $TMP.input
+if [ $? -ne 0 ]
+then
+    rm -f $TMP.*
+    exit 0
+fi
+
+grep -q "<[a-zA-Z].*>" $TMP.input \
+    && echo "Content-Type: text/html" >> $TMP.headers \
+    || echo "Content-Type: text/plain" >> $TMP.headers
 echo >> $TMP.headers
 
-cat > $TMP.input
 cat $TMP.headers $TMP.input | /usr/sbin/sendmail "$DEST"
-# cat $TMP.headers $TMP.input | /usr/bin/mailx -f "$RETMAIL"
-
-# cat $TMP.headers $TMP.input
 
 rm $TMP*
