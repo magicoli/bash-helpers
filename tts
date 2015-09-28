@@ -1,8 +1,8 @@
 #!/bin/bash
 
 evoice=mb/mb-fr4
-mvoice=fr2
-pitch=60
+mvoice=fr4
+pitch=55
 speed=140
 
 TTS=$(which say) || TTS=$(which mbrola) || TTS=$(which espeak) || TTS=cat
