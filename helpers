@@ -65,7 +65,7 @@ log() {
 }
 
 end() {
-	if [ $1 ]
+	if [ "$1" ]
 		then
 		expr $1 + 0 >/dev/null 2>/dev/null && ERRNUM=$1 || ERRNUM=0
 	else
