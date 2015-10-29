@@ -1,5 +1,7 @@
 #!/bin/sh
 
+shopt -s compat42
+
 ini_parser ()
 {
 	ini=$(cat $1 \
