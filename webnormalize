@@ -1,0 +1,30 @@
+#!/bin/sh
+
+OS=`uname -a | cut -d " " -f 1 | sed "s/[^a-zA-Z0-9]//g"`
+
+if [ "$1" ]
+	then
+	for name in "$@"
+	do
+		echo "$name"
+	done
+else
+	cat
+fi | while read name
+do
+    if [ "$OS" = "Darwin" ]
+    then
+	echo "$name" \
+	    | tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" \
+	    | sed "s|[\`´'^]||g"
+    else 
+	echo "$name" \
+	    | iconv -f utf-8 -t ascii//translit
+    fi | tr " [:upper:]" "_[:lower:]" \
+	| sed "s|[^a-zA-Z0-9_\./-]*||g" \
+	| sed "s|__*|_|g" \
+	| sed "s/_*--*_*/-/g"
+done
+
+	 # \
+	 #  	| tr "\n" "_" | sed "s|__*|_|g" | sed "s|_$||g"

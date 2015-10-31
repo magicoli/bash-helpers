@@ -1,0 +1,96 @@
+#!/usr/bin/php
+#/Library/PostgreSQL/EnterpriseDB-ApachePhp/php/bin/php
+<?php
+$file="";
+
+$version = "Urlcoder v1.0 written my Michael Strutton\n"
+			."Copyright 2009 Michael Strutton. This program is distributed under the terms of the GNU GENERAL PUBLIC LICENSE http://www.gnu.org/licenses/gpl.txt";
+
+$help = "\n\nVersion: $version\n\n"
+		."Usage: urlcoder.php [-option] \n"
+		."This program takes input from STDIN or a file and encodes or decodes the data for use in URLs.\n"
+		."Options:\n"
+		."   -f  filename to de/encode if no file name is given input will be taken from STDIN.\n"
+		."   -e  Encode the input.\n"
+		."   -d  Decode the input.\n"
+		."   -v  Show the version.\n"
+		."   -h  Show this help.\n"
+		."\n\n"
+		."Usage Note: running the command without a file or piping input will leave the application running, and entering data with a carriage return at the prompt will process based on your en/decode option."
+		."\n\n"
+		."This program uses the PHP urldecode and urlencode functions. From the PHP Manual:\n"
+		."urlencode - Returns a string in which all non-alphanumeric characters except -_. have been replaced with a percent (%) sign followed by two hex digits and spaces encoded as plus (+) signs. It is encoded the same way that the posted data from a WWW form is encoded, that is the same way as in application/x-www-form-urlencoded media type. This differs from the » RFC 1738 encoding (see rawurlencode()) in that for historical reasons, spaces are encoded as plus (+) signs.\n\n";
+
+	
+// set default action to return help
+$do = "help";
+
+// set default input as standard input 
+$type = "input";
+
+// get argument from the CLI input
+$argv = $_SERVER['argv'];
+
+$totalArgv = count($argv);
+if( $totalArgv > 1 ){
+	for( $x = 1; $x < $totalArgv; $x++ ) {
+		switch($argv[$x]) {
+			case '-e':
+				// we are encoding 
+				$option = "encode";
+				$do = "run";
+			break;
+			case '-d':
+				// we are decoding 
+				$option = "decode";
+				$do = "run";
+			break;
+			case '-v':
+				// user asked for version
+				$do = "version";
+			break;
+			case '-h':
+				// user asked for help
+				$do = "help";
+			break;
+			case '-f':
+				// get input file name
+				$type = "file";
+				$file = trim($argv[$x+1]);
+			break;
+		}
+	}
+}
+
+switch($do) {
+	case 'help':
+		echo $help;
+	break;
+	case 'version':
+		echo $version;
+	break;
+	case 'run';
+		urlcode($type, $file, $option);
+	break;
+}
+
+function urlcode($i, $f, $o) {
+	if ($i == "file") {
+		$file = @fopen("$f", "r") or exit("Unable to open file $f!\n\n");	
+	} else {
+		$file = @fopen('php://stdin', 'r') or exit("Unable to process standard input\n\n");
+	}
+
+	while(!feof($file)) {
+		$line = chop(fgets($file));
+		if ($o == 'decode') {
+		echo urldecode($line);
+		} else {
+		echo urlencode($line);	
+		}
+		echo "\n";
+	}
+	fclose($file);
+}
+
+?>

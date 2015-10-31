@@ -1,0 +1,148 @@
+#!/bin/sh
+#
+# Time sheet tool
+#
+
+
+PID=$$
+PGM=`basename $0`
+TMP=/tmp/.$PGM.$PID
+BILLDETAIL=/tmp/$PGM-billdetail
+LOG=/tmp/$PGM
+TABLE=`echo "tmp_${PGM}_${PID}" | sed "s/[^a-zA-Z0-9_]//g"`
+
+export PAGER=cat
+
+OPTS="dHVQ"
+
+PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
+PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
+    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
+    | sed "s/.\///g" `
+USAGE=`echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g"`
+
+
+help() {
+    usage
+    echo
+    echo "      -t <template>"
+    echo "      -H display this help"
+    echo "      -V verbose mode"
+    echo "      -Q quiet mode"
+    echo
+    echo "sorry, helpman is in a minimalist mood"
+    exit 0
+}
+
+usage() {
+    echo "usage: $USAGE"
+}
+
+log() {
+    if [ "$LOG" ]
+        then
+        ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
+        ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+        [ "$ERRNUM" ] && shift
+        LOGMESSAGE=$@
+        LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+        [ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
+        if [ "$ERRNUM" -a "$QUIET" != "yes" ]
+            then
+            echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2
+        elif [ "$DEBUG" = "yes" ]
+            then
+            echo "$PGM: $LOGMESSAGE" >&2
+        fi
+    else
+        echo "LOG variable not set"
+        exit 1
+    fi
+}
+
+end() {
+    if [ "$1" ]
+	then
+	log $@
+    else
+	log "End processing"
+    fi
+    rm -f $TMP*
+    rm -f $LOG.lock
+    exit $ERRNUM
+}
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+	"?")
+	    ERROR=1
+	    ;;
+	-)
+	    case $OPTARG in
+		help)
+		    help
+		    ;;
+		*)
+		    printf "$PGM: illegal option -- $OPTARG"
+#		    ERROR=1
+	    esac
+	    ;;
+	d)
+	    DOIT=true
+	    ;;
+#	t)
+#	    printf "$PARAM set to $OPTARG\n"
+#	    TEMPLATE=$OPTARG
+#	    ;;
+	H)
+	    help
+	    ;;
+	V)
+#		    echo "Debug mode"
+	    STDERR="&1"
+	    DEBUG=yes
+	    ;;
+	Q)
+	    STDOUT="/dev/null"
+		QUIET=yes
+	    DEBUG=no
+	            ;;
+	*)
+	    VALUES="$VALUES $PARAM"
+	    LASTVAL=$PARAM
+    esac
+
+done 2>/dev/null
+
+shift `expr $OPTIND - 1`
+
+if [ $ERROR ]
+    then
+    usage
+    echo "$ERROR   type '$PGM --help' for more info"
+    end "$ERROR   type '$PGM --help' for more info"
+fi
+
+if [ ! "$1" ]
+    then
+    find . -type f -name "*~" >> $TMP.files
+else
+    while [ "$1" ]
+      do
+      find "$1" -type f -name "*~" >> $TMP.files
+      shift
+    done
+fi
+  
+if [ "$DOIT" = true ]
+    then
+    cat $TMP.files | sed "s/\(.*\)/\"\\1\"/" | xargs  rm 
+    end
+else
+    cat $TMP.files | sed "s/\(.*\)/\"\\1\"/" 
+fi
+
+#| xargs rm
+
+end
