@@ -8,19 +8,21 @@ A couple of useful tools for bash scripting
 
 ## helpers
 
-Put this line at the beginning of your script
+Put this line at the beginning of your script (*do not run the file directly, source it*):
 
-`. /path/to/helpers`
+```
+. /path/to/helpers
+```
 
 and use these functions inside the script
 
-`
+``
 end [errornumber] [message]
 log [errornumber] [message]
 readvar [var]
 yesno [-y] ["message"]
 ucfirst [string]
-`
+``
 
 ## ini_parser
 
@@ -35,9 +37,11 @@ let's say you have a .ini file with this content
 	name = "Einstein"
 ```
 
-Put this line at the beginning of your script
+Put this line at the beginning of your script (*do not run the file directly, source it*):
 
-`. /path/to/ini_parser`
+```
+. /path/to/ini_parser
+```
 
 And, where you need it
 
