@@ -38,6 +38,10 @@
 
 shopt -s compat42
 [ ! "$TAB" ] && TAB="   "
+[ ! "$TMP" ] && TMP=/tmp/$(basename "0" | sed "s/ /_/g").$$
+TMPINI=$TMP.ini_parser
+
+trap "{ echo exited, removing $TMPINI.*; rm -f $TMPINI.*; ls $TMPINI.* 2>/dev/null; }" EXIT
 
 ini.parse ()
 {
@@ -78,13 +82,14 @@ ini.parse ()
               -e 's/%3B/;/g' \
               -e 's/%3D/=/g'
            )"
+    ini_cache=$1
     ini_parsed=$1
     IFS=$OLDIFS
 }
 
 ini.list.sections () 
 {
-    sections=$(mktemp)
+    rm -f "$TMPINI.sections"
     i=$#
     while [ $i -gt 0 ]
     do
@@ -96,25 +101,25 @@ ini.list.sections ()
 	    | cut -d "[" -f 2 | cut -d "]" -f 1 \
 	    | while read section
 	do
-	    grep -q "^$section$" $sections && continue
-	    echo $section >> $sections.new
+	    grep -q "^$section$" $TMPINI.sections && continue
+	    echo $section >> $TMPINI.sections.new
 	done
-	if [ -f "$sections.new" ]
+	if [ -f "$TMPINI.sections.new" ]
 	then
-	    cat $sections.new $sections > $sections.updated 
-	    mv $sections.updated $sections
-	    rm -f $sections.new
+	    cat $TMPINI.sections.new $TMPINI.sections > $TMPINI.sections.updated 
+	    mv $TMPINI.sections.updated $TMPINI.sections
+	    rm -f $TMPINI.sections.new
 	fi
     done
-    cat $sections
-    rm -f $sections
+    cat $TMPINI.sections
+    rm -f $TMPINI.sections
     return
 }
 
 ini.load.all ()
-{
-    echo reading $merged
-    ini.list.sections $merged
+{    
+    echo reading $ini_pârsed
+    ini.list.sections ini_parsed
     SAVED_IFS=$IFS
     IFS=' '$'\n'
 
@@ -138,7 +143,6 @@ ini.write ()
     IFS=' '$'\n'
     fun="$(declare -F)"
     fun="${fun//declare -f/}"
-    tmp=$(mktemp)
     for f in $fun; do
         [ "${f#ini.section}" == "${f}" ] && continue
 	[ "$1" ] && [ "$f" != "ini.section.$1" ] && continue
@@ -155,10 +159,10 @@ ini.write ()
 	    var=$(echo $var | sed -e "s/=/%3D/g" -e "s/%3D/=/") 
 	    var="${var%=*}"
             echo "$TAB"$var=\"${!var}\" | grep -v ');*=""'
-        done | sed 's/${/$\\{/g' > $tmp
-	eval $f 2>/dev/null
-	. $tmp
-	rm -f $tmp
+        done | sed 's/${/$\\{/g' > $TMPINI.vars
+	eval $f
+	. $TMPINI.vars
+	rm -f $TMPINI.vars
         for var in $vars; do
 	    echo "$var" | grep -q "=" || continue
 	    var="${var%=*}"
@@ -173,15 +177,14 @@ ini.merge()
     [ "$2" ] || return
     msection=$1; shift
 #    log "merging section $msection"
-#    log "     from files $merged"
-    merge=$(mktemp)
+#    log "     from files ini_parsed"
 
-    echo "[$msection]" >> $merge
+    echo "[$msection]" >> $TMPINI.merge
     i=0
     for mfile in $@
     do
 	i=$(($i + 1))
-	touch $merge.$i
+#	touch $TMPINI.merge.$i
 	[ ! -f "$mfile" ] && continue
 #	log processing $msection in $mfile
 	ini.parse $mfile 2>/dev/null
@@ -190,44 +193,44 @@ ini.merge()
 	do
 	    var=$(echo "$line" | cut -d = -f 1 \
 		| sed "s/[[:blank:]]*//g")
-	    egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $merge > $merge.new
-	    echo "$line" >> $merge.new
-	    mv $merge.new $merge
+	    egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge > $TMPINI.mergenew
+	    echo "$line" >> $TMPINI.mergenew
+	    mv $TMPINI.mergenew $TMPINI.merge
 	done
     done
-    ini.parse $merge && merged="$@"
+    ini.parse $TMPINI.merge && ini_parsed="$@"
     return
     ini.write $msection
 
 #    IFS=$SAVED_IFS
     return
 
-#    printf "" | cat $(ls $merge.* 2>/dev/null | sort -r) 
+#    printf "" | cat $(ls $TMPINI.merge* 2>/dev/null | sort -r) 
 #    echo 2>/dev/null | while read line
 
-    ls $merge.* | while read $mfile
+    ls $TMPINI.merge* | while read $mfile
     do
 	cat $mfile 2>/dev/null
     done | while read line
     do
 	var="${line%=*}"
-	grep -q "^[[:blank:]]*$var[[:blank:]]*=" $merge && continue
-	echo $line >> $merge
+	grep -q "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge && continue
+	echo $line >> $TMPINI.merge
     done
-    [ -f "$merge" ] || return
-    ini.parse $merge 2>/dev/null
+    [ -f "$TMPINI.merge" ] || return
+    ini.parse $TMPINI.merge 2>/dev/null
     ini.section.$msection 2>/dev/null
-    rm -f "$merge" $merge.*
+    rm -f $TMPINI.merge.*
 }
 
 ini.write.all ()
 {
-    [ ! "$1" ] && [ ! "$merged" ] && end 1 "You need to load one or more .ini before using write.all or supply files to load to the command"
-    if [ "$1" -a "$1" != "$merged" ]
+    [ ! "$1" ] && [ ! "$ini_parsed" ] && end 1 "You need to load one or more .ini before using write.all or supply files to load to the command"
+    if [ "$1" -a "$1" != "$ini_parsed" ]
     then
-	log "reload $1 (had $merged)"
+	log "reload $1 (had $ini_parsed)"
     else
-	log "use previously loaded $merged"
+	log "use previously loaded $ini_parsed"
     fi
     return
 
@@ -236,5 +239,4 @@ ini.write.all ()
 	ini.merge $wsection $@
 	ini.write $wsection
     done
-#    merged=$@
 }
