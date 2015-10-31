@@ -16,13 +16,13 @@ Put this line at the beginning of your script (*do not run the file directly, so
 
 and use these functions inside the script
 
-``
+```
 end [errornumber] [message]
 log [errornumber] [message]
 readvar [var]
 yesno [-y] ["message"]
 ucfirst [string]
-``
+```
 
 ## ini_parser
 
