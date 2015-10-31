@@ -47,7 +47,7 @@ echo $name
 
 Output: `Albert`
 
-And later...
+Then, later... (no need to repeat ini.parse /path/to/config/file.ini)
 
 ```
 ini.section.Smart
