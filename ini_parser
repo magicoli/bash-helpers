@@ -41,7 +41,7 @@ shopt -s compat42
 [ ! "$TMP" ] && TMP=/tmp/$(basename "0" | sed "s/ /_/g").$$
 TMPINI=$TMP.ini_parser
 
-trap "{ echo exited, removing $TMPINI.*; rm -f $TMPINI.*; ls $TMPINI.* 2>/dev/null; }" EXIT
+trap "{ rm -f $TMPINI.*; ls $TMPINI.* 2>/dev/null; }" EXIT
 
 ini.parse ()
 {
