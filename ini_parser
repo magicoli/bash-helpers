@@ -77,18 +77,54 @@ ini.parse ()
               -e 's/%%SEMICOLON%%/;/g' \
               -e 's/%3B/;/g' \
               -e 's/%3D/=/g'
-
-    )"
+           )"
+    ini_parsed=$1
     IFS=$OLDIFS
+}
+
+ini.list.sections () 
+{
+    sections=$(mktemp)
+    i=$#
+    while [ $i -gt 0 ]
+    do
+	file=${!i}
+	i=$(($i - 1))
+	printf "" | cat $file \
+	    | grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" \
+	    | sed "s/;.*//" \
+	    | cut -d "[" -f 2 | cut -d "]" -f 1 \
+	    | while read section
+	do
+	    grep -q "^$section$" $sections && continue
+	    echo $section >> $sections.new
+	done
+	if [ -f "$sections.new" ]
+	then
+	    cat $sections.new $sections > $sections.updated 
+	    mv $sections.updated $sections
+	    rm -f $sections.new
+	fi
+    done
+    cat $sections
+    rm -f $sections
+    return
 }
 
 ini.load.all ()
 {
+    echo reading $merged
+    ini.list.sections $merged
     SAVED_IFS=$IFS
     IFS=' '$'\n'
+
+    IFS=$SAVED_IFS
+    return
+
     fun="$(declare -F)"
     fun="${fun//declare -f/}"
     for f in $fun; do
+	echo "load $f" >&2
         [ "${f#ini.section}" == "${f}" ] && continue
 	eval $f
     done
@@ -135,19 +171,44 @@ ini.write ()
 ini.merge()
 {
     [ "$2" ] || return
-    section=$1; shift
+    msection=$1; shift
+#    log "merging section $msection"
+#    log "     from files $merged"
     merge=$(mktemp)
-    echo "[$section]" >> $merge
-    for file in $@
+
+    echo "[$msection]" >> $merge
+    i=0
+    for mfile in $@
     do
 	i=$(($i + 1))
-	[ -f "$file" ] || continue
-	ini.parse $file 2>/dev/null
-	ini.section.$section 2>/dev/null || continue
-	ini.write -a $section > $merge.$i
+	touch $merge.$i
+	[ ! -f "$mfile" ] && continue
+#	log processing $msection in $mfile
+	ini.parse $mfile 2>/dev/null
+	ini.section.$msection 2>/dev/null || continue
+	ini.write -a $msection | while read line
+	do
+	    var=$(echo "$line" | cut -d = -f 1 \
+		| sed "s/[[:blank:]]*//g")
+	    egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $merge > $merge.new
+	    echo "$line" >> $merge.new
+	    mv $merge.new $merge
+	done
     done
+    ini.parse $merge && merged="$@"
+    return
+    ini.write $msection
 
-    cat "" $(ls $merge.* 2>/dev/null | sort -r) 2>/dev/null | while read line
+#    IFS=$SAVED_IFS
+    return
+
+#    printf "" | cat $(ls $merge.* 2>/dev/null | sort -r) 
+#    echo 2>/dev/null | while read line
+
+    ls $merge.* | while read $mfile
+    do
+	cat $mfile 2>/dev/null
+    done | while read line
     do
 	var="${line%=*}"
 	grep -q "^[[:blank:]]*$var[[:blank:]]*=" $merge && continue
@@ -155,6 +216,25 @@ ini.merge()
     done
     [ -f "$merge" ] || return
     ini.parse $merge 2>/dev/null
-    ini.section.$section 2>/dev/null
+    ini.section.$msection 2>/dev/null
     rm -f "$merge" $merge.*
+}
+
+ini.write.all ()
+{
+    [ ! "$1" ] && [ ! "$merged" ] && end 1 "You need to load one or more .ini before using write.all or supply files to load to the command"
+    if [ "$1" -a "$1" != "$merged" ]
+    then
+	log "reload $1 (had $merged)"
+    else
+	log "use previously loaded $merged"
+    fi
+    return
+
+    ini.list.sections $@ | while read wsection
+    do
+	ini.merge $wsection $@
+	ini.write $wsection
+    done
+#    merged=$@
 }
