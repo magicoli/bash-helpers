@@ -1,8 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
+
+[[ "$_" = "$0" ]] && echo "$0 must be sourced, not run directly" && exit 1
 
 PID=$$
 [ "$PGM" ] || PGM=`basename $0`
