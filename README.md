@@ -39,20 +39,20 @@ Put this line at the beginning of your script
 
 And, where you need it
 
-`
+```
 ini.parse /path/to/config/file.ini
 ini.section.Default
 echo $name
-`
+```
 
 Output: `Albert`
 
 And later...
 
-`
+```
 ini.section.Smart
 echo $name
-`
+```
 
 Output: `Einstein`
 
