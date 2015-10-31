@@ -1,9 +1,8 @@
 #!/bin/sh
 
-# Authors:	Olivier van Helden
-#
-# Reditribution, modification and use are authorized, provided that 
-# this disclaimer, the authors name and Speculoos web address stay in the redistributed code
+# Copyright 2015 Olivier van Helden <olivier@van-helden.net>
+# Released under GNU Affero GPL v3.0 license
+#    http://www.gnu.org/licenses/agpl-3.0.html
 
 PID=$$
 [ "$PGM" ] || PGM=`basename $0`
@@ -91,4 +90,37 @@ end() {
 	# [ -f $LOG ] && chmod -f 666 $LOG*
 
 	exit $ERRNUM
+}
+
+readvar() {
+    for var in $@
+    do
+	varname=$(echo $var | sed "s/\([a-z]\)\([A-Z]\)/\\1 \\2/g")
+	if [ "$AUTOMATIC" = "yes" ]
+	then
+	    echo "$varname: ${!var}"
+	else
+	    read -e -p "$varname: " -i ${!var} $var
+	fi
+    done
+}
+
+yesno() {
+    default=n
+    choice="y/N"
+    [ "$1" = "y" ] && default=y && choice="Y/n" && shift
+    [ "$@" ] && message="$@" || message="Answer"
+    message="$message ($choice) "
+    read -p "$message" answer
+    [ "$answer" = "" ] && answer=$default
+    answer=$(echo "$answer" | tr "[:upper:]" "[:lower:]")
+    [ "$answer" = "y" ] && return 0
+    [ "$answer" = "yes" ] && return 0
+    return 1
+}
+
+ucfirst() {
+    upper=$(echo $@ | cut -c 1 | tr "[:lower:]" "[:upper:]")
+    lower=$(echo $@ | cut -c 2- | tr "[:upper:]" "[:lower:]")
+    echo "$upper$lower"
 }
