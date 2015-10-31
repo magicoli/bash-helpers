@@ -1,4 +1,8 @@
 #!/bin/sh
+#
+# Copyright 2015 Olivier van Helden <olivier@van-helden.net>
+# Released under GNU Affero GPL v3.0 license
+#    http://www.gnu.org/licenses/agpl-3.0.html
 
 export PATH=$(dirname "$0"):$PATH
 
@@ -21,15 +25,3 @@ do
 	space=" "
 done
 echo
-
-# | tr "ÁÀÂÄÉÈÊÊÍÌÎÏÓÒÔÖÚÙÛÜÇ" "AAAAEEEEIIIIOOOOUUUUC" \
-
-# /usr/bin/python -c "import sys; print sys.argv[1].title()" "$string" \
-# 	| sed "s/ \././g" \
-# 	| sed "s/  */ /" \
-# 	| sed "s/\.Mov/.mov/" \
-# 	| sed "s/\.Jpg/.jpg/" 
-# 
-# #echo "$string"
-# 
-# # /usr/bin/python -c "import sys; print sys.argv[1].title()" "$1" \

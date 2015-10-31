@@ -1,5 +1,4 @@
 #!/usr/bin/php
-#/Library/PostgreSQL/EnterpriseDB-ApachePhp/php/bin/php
 <?php
 $file="";
 
