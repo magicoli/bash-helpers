@@ -1,0 +1,32 @@
+#!/bin/bash
+
+evoice=mb/mb-fr4
+mvoice=fr4
+pitch=55
+speed=140
+
+TTS=$(which say) || TTS=$(which mbrola) || TTS=$(which espeak) || TTS=cat
+TTS=$(basename "$TTS")
+PLAYER=$(which paplay) || PLAYER=$(which aplay) || PLAYER=$(which mplayer)
+
+[ "$@" ] || exit
+string="$@"
+
+case $TTS in 
+    say)
+	say "$string"
+	;;
+    espeak)
+	espeak -v $evoice -s $speed -p $pitch "$string"
+	;;
+    mbrola)
+	[ -f "$mvoice" ] || mvoice=/usr/share/mbrola/$mvoice/$mvoice
+	espeak -v $evoice -s $speed -p $pitch "$string" --pho \
+	    | mbrola $mvoice - -.au | paplay >/dev/null 2>/dev/null
+	;;
+    *)
+	echo "$string"
+	;;
+esac
+
+
