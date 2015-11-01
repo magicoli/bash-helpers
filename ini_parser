@@ -208,18 +208,17 @@ ini.merge()
 
 ini.write.all ()
 {
-    [ ! "$1" ] && [ ! "$ini_parsed" ] && end 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command"
+    [ ! "$1" ] && [ ! "$ini_parsed" ] && log 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command" && return 1
     if [ "$1" -a "$1" != "$ini_parsed" ]
     then
 	ini.parse $@
 	ini.write.all $@
 	return
-#    else
-#	ini_process=$ini_parsed
     fi
-    ini.list.sections "$@" | while read section
+
+    ini.list.sections "$ini_parsed" | while read section
     do
-	ini.merge $section $@
+	ini.merge $section $ini_parsed
 	ini.write $section
     done
 }
