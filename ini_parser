@@ -219,6 +219,7 @@ ini.write.all ()
     ini.list.sections "$ini_parsed" | while read section
     do
 	ini.merge $section $ini_parsed
+	ini.section.$section
 	ini.write $section
     done
 }
