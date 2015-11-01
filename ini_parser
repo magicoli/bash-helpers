@@ -47,22 +47,26 @@ TMPINI=$TMP.ini_parser
 
 trap "{ rm -f $TMPINI.*; ls $TMPINI.* 2>/dev/null; }" EXIT
 
+ini.cat ()
+{
+    cat $@ \
+	| egrep -v "^[[:blank:]]*$|^[[:blank:]]*;" \
+	| sed "s/^[[:blank:]]*//" \
+	| sed "s/[[:blank:]]*$//" \
+	| sed ':a;N;$!ba;s/\[[[:alpha:]]*\]\n\[/[/g' \
+	| sed "s/[[:blank:]]*=[[:blank:]]*/=/g" \
+	| sed "s/^[[:blank:]]*;.*//" \
+	| sed "s/;[[:blank:]]*$//" \
+	| sed "s/^[[:blank:]]*$//"
+}
 ini.parse ()
 {
     [ ! -f "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
     SAVED_IFS=$IFS
     # ini="$(<$1)"                # read the file
     ini=$(
-	cat $1 \
-	    | egrep -v "^[[:blank:]]*$|^[[:blank:]]*;" \
-	    | sed "s/^[[:blank:]]*//" \
-	    | sed "s/[[:blank:]]*$//" \
-	    | sed ':a;N;$!ba;s/\[[[:alpha:]]*\]\n\[/[/g' \
-	    | sed "s/[[:blank:]]*=[[:blank:]]*/=/g" \
-	    | sed "s/^[[:blank:]]*;.*//" \
-	    | sed "s/;[[:blank:]]*$//" \
+	ini.cat $1 \
 	    | sed "s/;/%%SEMICOLON%%/g" \
-	    | sed "s/^[[:blank:]]*$//" \
 	    | sed "s/\([{\\$]\)/\\\\\1/g" \
 	    | sed "s/=\([^\"].*[|{}\\$].*\)\"*$/=\"\\1\"/g" \
 	    | sed "s/=/%3D/g" \
@@ -115,9 +119,8 @@ ini.list.sections ()
     do
 	[ ! -f "$file" ] && log 1 "$FUNCNAME $file not found" && continue
 	i=$(($i + 1))
-	printf "" | cat $file \
+	printf "" | ini.cat $file \
 	    | grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" \
-	    | sed "s/;.*//" \
 	    | cut -d "[" -f 2 | cut -d "]" -f 1 \
 	    | while read section
 	do
