@@ -5,5 +5,3 @@
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
 date +"%Y%m%d-%H%M%S" 2>/dev/null
-
-
