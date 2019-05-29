@@ -1,20 +1,30 @@
-#!/bin/bash
-#
+#!/bin/sh
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
-[[ "$_" = "$0" ]] && echo "$0 must be sourced, not run directly" && exit 1
-
 PID=$$
 [ "$PGM" ] || PGM=`basename $0`
 [ "$TMP" ] || TMP=/tmp/$PGM.$PID
+[ "$LOCK" ] || LOCK=/tmp/.$PGM.lock
+
+trap 'rm -f $TMP.* $LOCK' EXIT
+
 SPC=$(echo "$PGM" | sed "s/./ /g")
 LOG=$TMP.log
 DATA="$HOME/.$PGM"
 
 COLOR_HIGHLIGHT="[1;31;40m"
 COLOR_NORMAL="[0;;m"
+# red='\e[1;31m'
+# green='\e[1;32m'
+# yel='\e[1;33m'
+# blu='\e[1;34m'
+# mag='\e[1;35m'
+# cyn='\e[1;36m'
+# end='\e[0m'
+
 [ ! "$ENDSUCCESS" ] && ENDSUCCESS="Succeed"
 [ ! "$ENDFAILED" ] && ENDFAILED="Failed"
 
@@ -26,17 +36,23 @@ else
     SAY=echo
 fi
 
-BINDIR=$(dirname "$0")
+echo "$0" | grep -q "^/" && BINDIR=$(dirname "$0") || BINDIR=$(dirname $(realpath "$0"))
 BASEDIR=$(dirname "$BINDIR")
 PATH=$BINDIR:$PATH
 
 help() {
-	echo "$PGM help"
-	echo "$HELP"
+	[ "$HELP" ] && echo "$HELP" || usage
 }
 
-USAGE="$PGM $SYNTAX"
 usage() {
+  if [ ! "$USAGE" ]
+  then
+    PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
+    PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
+        | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
+        | sed "s/.\///g" `
+    USAGE=$(echo $PGM $PAR $PAROPT "[...]" | sed "s/  / /g")
+  fi
 	echo "usage: $USAGE"
 }
 
@@ -45,14 +61,14 @@ log() {
 	if [ "$LOG" ]
 		then
 		ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
-		ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
+		ERR=`echo $ERRNUM | grep [0-9] |sed "s/\([0-9]*\)/<\\1\> /"`
 		[ "$ERRNUM" ] && shift
 		LOGMESSAGE=$@
-		LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
+		LOGLINE=`date +"%Y-%m-%d %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
 		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG)
-		if [ "$ERRNUM" ] 
+		if [ "$ERRNUM" ]
 			then
-			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2 
+			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2
 			[ "$USETTS" = "yes" ] && $SAY "Error $ERRNUM: $LOGMESSAGE" 2>/dev/null &
 		elif [ "$DEBUG" = "yes"  ]
 			then
@@ -68,7 +84,7 @@ log() {
 end() {
 	if [ "$1" ]
 		then
-		expr $1 + 0 >/dev/null 2>/dev/null && ERRNUM=$1 || ERRNUM=0
+		expr $1 + 0 >/dev/null 2>/dev/null && ERRNUM=$(($1 + 0)) && shift || ERRNUM=0
 	else
 		ERRNUM=0
 	fi
@@ -76,7 +92,7 @@ end() {
 	if [ "$ERRNUM" -ne 0 ]
 		then
 		# ERRNUM=`expr $ERRNUM + 0`
-		shift
+		# shift
 		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDFAILED
 		log $ERRNUM "$endMessage"
 	else
@@ -87,7 +103,7 @@ end() {
 		[ "$USETTS" = "yes" ] && $SAY "$endMessage" 2>/dev/null &
 	fi
 
-	rm -f $TMP*
+	rm -f $TMP $TMP.*
 	rm -f $LOG.lock
 	# [ -f $LOG ] && chmod -f 666 $LOG*
 
@@ -111,6 +127,7 @@ yesno() {
     default=n
     choice="y/N"
     [ "$1" = "y" ] && default=y && choice="Y/n" && shift
+    [ "$1" = "-y" ] && default=y && choice="Y/n" && shift
     [ "$@" ] && message="$@" || message="Answer"
     message="$message ($choice) "
     read -p "$message" answer
@@ -121,8 +138,81 @@ yesno() {
     return 1
 }
 
+istrue() {
+  answer=$(echo $1 | tr "[:upper:]" "[:lower:]")
+  case $answer in
+    y|yes|o|oui|t|true)
+    # log "answer $1 is true"
+    return
+    ;;
+  esac
+  # log "answer $1 is false"
+  return -1
+}
+
 ucfirst() {
     upper=$(echo $@ | cut -c 1 | tr "[:lower:]" "[:upper:]")
     lower=$(echo $@ | cut -c 2- | tr "[:upper:]" "[:lower:]")
     echo "$upper$lower"
 }
+
+[ ! "$OPTS" ]  && OPTS="hvq"
+PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
+PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
+    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
+    | sed "s/.\///g" `
+[ ! "$USAGE" ] && USAGE=$(echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g")
+[ ! "$HELP" ] && HELP="
+  -h, --help  help
+  -q  quiet
+  -v  verbose
+"
+echo "$HELP" | grep -q "[Uu]sage:" || HELP="$(usage)
+
+$HELP"
+
+if [ "$OPTSINHELPER" = "yes" ]
+then
+
+while getopts $OPTS PARAM
+  do
+    case $PARAM in
+    "?")
+      ERROR=1
+      ;;
+    -)
+      case $OPTARG in
+      help)
+        help; end
+        ;;
+      quiet)
+        STDOUT="/dev/null"
+        QUIET=yes
+        DEBUG=no
+        ;;
+      verbose)
+        STDERR="&1"
+        DEBUG=yes
+        ;;
+      esac
+      ;;
+    h)
+      help; end
+      ;;
+    v)
+      STDERR="&1"
+      DEBUG=yes
+      ;;
+    q)
+      STDOUT="/dev/null"
+      QUIET=yes
+      DEBUG=no
+      ;;
+  esac
+done 2>/dev/null
+
+  [ $ERROR ] && end $ERROR "$(usage)
+  type '$PGM --help' for more info"
+fi
+OPTPROCESSED=$OPTIND
+OPTIND=1
