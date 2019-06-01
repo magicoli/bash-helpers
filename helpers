@@ -118,7 +118,7 @@ readvar() {
 	then
 	    echo "$varname: ${!var}"
 	else
-	    read -e -p "$varname: " -i ${!var} $var
+	    read -e -p "$varname: " -i "${!var}" $var
 	fi
     done
 }
