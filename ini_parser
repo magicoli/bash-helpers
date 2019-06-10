@@ -61,11 +61,12 @@ ini.cat ()
 }
 ini.parse ()
 {
-    [ ! -f "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
+  [ ! "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
+  [ ! -f "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
     SAVED_IFS=$IFS
     # ini="$(<$1)"                # read the file
     ini=$(
-	ini.cat $1 \
+	ini.cat $@ \
 	    | sed "s/;/%%SEMICOLON%%/g" \
 	    | sed "s/\([{\\$]\)/\\\\\1/g" \
 	    | sed "s/=\([^\"].*[|{}\\$].*\)\"*$/=\"\\1\"/g" \
@@ -95,49 +96,49 @@ ini.parse ()
               -e 's/%3D/=/g'
            )"
     exitcode=$?
-    ini_cache=$1
-    ini_parsed=$1
+    ini_cache=$@
+    ini_parsed=$@
     IFS=$OLDIFS
     return $exitcode
 }
 
-ini.list.sections () 
+ini.list.sections ()
 {
-    [ ! "$1" -a ! "$ini_parsed" ] && end 1 "$FUNCNAME needs you to load one or more .ini before using $FUNCNAME or supply files to load to the command"
+  [ ! "$1" -a ! "$ini_parsed" ] && end 1 "$FUNCNAME needs you to load one or more .ini before using $FUNCNAME or supply files to load to the command"
 
-    if [ "$1" ]
-    then
-	ini_process=$@
-    else
-	ini_process=$ini_parsed
-    fi
-    printf "" > $TMPINI.sections
-    IFS=" "
-    i=0
-    touch $TMPINI.sections
-    for file in $ini_process
+  if [ "$1" ]
+  then
+    ini_process=$@
+  else
+    ini_process=$ini_parsed
+  fi
+  printf "" > $TMPINI.sections
+  IFS=" "
+  i=0
+  touch $TMPINI.sections
+  for file in $ini_process
+  do
+    [ ! -f "$file" ] && log 1 "$FUNCNAME $file not found" && continue
+    touch $TMPINI.sections.new $TMPINI.sections.added
+    i=$(($i + 1))
+    printf "" | ini.cat $file \
+    | grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" \
+    | cut -d "[" -f 2 | cut -d "]" -f 1 \
+    | while read section
     do
-	[ ! -f "$file" ] && log 1 "$FUNCNAME $file not found" && continue
-	i=$(($i + 1))
-	printf "" | ini.cat $file \
-	    | grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" \
-	    | cut -d "[" -f 2 | cut -d "]" -f 1 \
-	    | while read section
-	do
-	    touch $TMPINI.sections.new $TMPINI.sections.added
-	    grep -q "^$section$" $TMPINI.sections \
-		&& continue
-	    grep -q "^$section$" $TMPINI.sections.added \
-		&& continue
-	    echo $section >> $TMPINI.sections.added
-	done
-	cat $TMPINI.sections.added $TMPINI.sections > $TMPINI.sections.new 
-	mv $TMPINI.sections.new $TMPINI.sections
-	rm -f $TMPINI.sections.added
+      grep -q "^$section$" $TMPINI.sections \
+      && continue
+      grep -q "^$section$" $TMPINI.sections.added \
+      && continue
+      echo $section >> $TMPINI.sections.added
     done
-    cat $TMPINI.sections
-    rm -f $TMPINI.sections
-    return
+    cat  $TMPINI.sections $TMPINI.sections.added > $TMPINI.sections.new 2>/dev/null
+    mv $TMPINI.sections.new $TMPINI.sections
+    rm -f $TMPINI.sections.added
+  done
+  cat $TMPINI.sections
+  rm -f $TMPINI.sections
+  return
 }
 
 ini.write ()
@@ -160,7 +161,7 @@ ini.write ()
         [ ! "$APPEND" ] && echo "[${f#ini.section.}]"
 	for var in $vars; do
 	    echo "$var" | grep -q "=" || continue
-	    var=$(echo $var | sed -e "s/=/%3D/g" -e "s/%3D/=/") 
+	    var=$(echo $var | sed -e "s/=/%3D/g" -e "s/%3D/=/")
 	    var="${var%=*}"
             echo "$TAB"$var=\"${!var}\" | grep -v ');*=""'
         done | sed 's/${/$\\{/g' > $TMPINI.vars
@@ -178,57 +179,58 @@ ini.write ()
 
 ini.merge()
 {
-    [ ! "$2" ] && log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]" && return 1
-    section=$1; shift
-    ini.list.sections $@ | grep -q "^$section$"
-    if [ $? -ne 0 ]
-    then
-	log 1 "$FUNCNAME didn't find the section $section"
-	log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]"
-	return 1
-    fi
+  [ ! "$2" ] && log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]" && return 1
+  section=$1; shift
+  ini.list.sections $@ | grep -q "^$section$"
+  if [ $? -ne 0 ]
+  then
+    log 1 "$FUNCNAME didn't find the section $section"
+    log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]"
+    return 1
+  fi
 
-    echo "[$section]" > $TMPINI.merge
-    i=0
-    for file in $@
+  echo "[$section]" > $TMPINI.merge
+  i=0
+  for file in $@
+  do
+    i=$(($i + 1))
+    #	touch $TMPINI.merge.$i
+    [ ! -f "$file" ] && continue
+
+    ini.parse $file 2>/dev/null
+    ini.list.sections $file | grep -q "^$section$" || continue
+    ini.section.$section || continue
+    ini.write -a $section | while read line
     do
-	i=$(($i + 1))
-#	touch $TMPINI.merge.$i
-	[ ! -f "$file" ] && continue
-	
-	ini.parse $file 2>/dev/null
-	ini.list.sections $file | grep -q "^$section$" || continue
-	ini.section.$section || continue
-	ini.write -a $section | while read line
-	do
-	    var=$(echo "$line" | cut -d = -f 1 \
-		| sed "s/[[:blank:]]*//g")
-	    egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge > $TMPINI.merge.new
-	    echo "$line" >> $TMPINI.merge.new
-	    mv $TMPINI.merge.new $TMPINI.merge
-	done
+      var=$(echo "$line" | cut -d = -f 1 \
+      | sed "s/[[:blank:]]*//g")
+      egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge > $TMPINI.merge.new
+      echo "$line" >> $TMPINI.merge.new
+      mv $TMPINI.merge.new $TMPINI.merge
     done
-    count=$(cat $TMPINI.merge | wc -l)
-    [ $count -gt 1 ] &&
-    ini.parse $TMPINI.merge && ini_parsed="$@"*
-    rm -f $TMPINI.merge.*
-    return
+  done
+  count=$(cat $TMPINI.merge | wc -l)
+  [ $count -gt 1 ] &&
+  ini.parse $TMPINI.merge && ini_parsed="$@"*
+  rm -f $TMPINI.merge.*
+  return
 }
 
 ini.write.all ()
 {
-    [ ! "$1" ] && [ ! "$ini_parsed" ] && log 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command" && return 1
-    if [ "$1" -a "$1" != "$ini_parsed" ]
-    then
-	ini.parse $@
-	ini.write.all $@
-	return
-    fi
+  [ ! "$1" ] && [ ! "$ini_parsed" ] && log 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command" && return 1
+  if [ "$1" -a "$1" != "$ini_parsed" ]
+  then
+    ini.parse $@
+    ini.write.all
+     # $@
+    return
+  fi
 
-    ini.list.sections "$ini_parsed" | while read section
-    do
-	ini.merge $section $ini_parsed
-	ini.section.$section
-	ini.write $section
-    done
+  ini.list.sections $ini_parsed | while read section
+  do
+    ini.merge $section $ini_parsed
+    ini.section.$section 2>/dev/null
+    ini.write $section
+  done
 }
