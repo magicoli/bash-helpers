@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
@@ -130,7 +130,7 @@ yesno() {
     [ "$1" = "-y" ] && default=y && choice="Y/n" && shift
     [ "$@" ] && message="$@" || message="Answer"
     message="$message ($choice) "
-    read -p "$message" answer
+    read -u1 -p "$message" answer
     [ "$answer" = "" ] && answer=$default
     answer=$(echo "$answer" | tr "[:upper:]" "[:lower:]")
     [ "$answer" = "y" ] && return 0
@@ -154,6 +154,29 @@ ucfirst() {
     upper=$(echo $@ | cut -c 1 | tr "[:lower:]" "[:upper:]")
     lower=$(echo $@ | cut -c 2- | tr "[:upper:]" "[:lower:]")
     echo "$upper$lower"
+}
+
+convertsecs() {
+  d=$(($1/86400))
+  [ $d = 1 ] && days="$d day "
+  [ $d -gt 1 ] && days="$d days "
+  h=$(($1%86400/3600))
+  m=$(($1%3600/60))
+  s=$(($1%60))
+  printf "$days%02d:%02d:%02d\n" $h $m $s | sed -e "s/^00://g" -e "s/^00:0*\([0-9][0-9]*\)/\\1 seconds/g" -e "s/^[01] seconds/1 second/" -e "s/ 00:00:00$//"
+}
+
+countdown() {
+  [ "$1" ] && secs=$1 && shift || secs=5
+  [ "$1" ] && msg=$@ || msg=Countdown
+  while [ $secs -gt 0 ]
+  do
+    time=$(convertsecs $secs)
+    printf "\r\033[K$msg $time"
+    secs=$(($secs - 1))
+    read -t 1 && return
+  done
+  printf "\r\033[K"
 }
 
 [ ! "$OPTS" ]  && OPTS="hvq"
