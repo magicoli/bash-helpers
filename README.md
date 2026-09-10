@@ -11,14 +11,14 @@ A couple of useful tools for bash scripting.
 With composer:
 
 ```
-composer config repositories.magicoli/bash-helpers vcs git@github.com:magicoli/bash-helpers.git
-composer require magicoli/bash-helpers:@dev
+composer config repositories.magicoli/bash-tools vcs git@github.com:magicoli/bash-tools.git
+composer require magicoli/bash-tools:@dev
 ```
 
 Put this line at the beginning of your script (_do not run the file directly, source it_):
 
 ```
-. /path/to/helpers
+source /path/to/helpers
 ```
 
 and use these functions inside the script
