@@ -1,24 +1,16 @@
-for path in ~/.local/bin "$vendor_dir/bin" ~/bin; do
-	[ -d "$path" ] || continue
-	path=$(echo "$path" | sed "s:$HOME:~:")
-	echo ":$PATH:" | grep -q ":$path:" || export PATH="$path:$PATH"
-done
-
-bash_tools_package=magicoli/bash-tools
-if [ -n "${BASH_SOURCE:-}" ]; then
-	bash_tools_etc_dir=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
-else
-	for vendor_dir in ~/.config/composer/vendor ~/.composer/vendor; do
-		[ -d $vendor_dir/$bash_tools_package ] && bash_tools_etc_dir= && break
-	done
-fi
-
-if [ -n "$bash_tools_etc_dir" -a -d "$bash_tools_etc_dir" ]; then
+COMPOSER_HOME=${COMPOSER_HOME:-$(composer global config home -q)}
+[ -d $COMPOSER_HOME/vendor/magicoli/bash-tools/etc ] &&
+	bash_tools_etc_dir="$COMPOSER_HOME/vendor/magicoli/bash-tools/etc" &&
 	for file in \
 		"${bash_tools_etc_dir}/profile.d"/* \
 		"${bash_tools_etc_dir}/bash_completion.d"/*; do
 		source "$file"
-	done
-fi
+	done 2>/dev/null
+
+for path in ~/.local/bin "$COMPOSER_HOME/vendor/bin" ~/bin; do
+	[ -d "$path" ] || continue
+	path=$(echo "$path" | sed "s:$HOME:~:")
+	echo ":$PATH:" | grep -q ":$path:" || export PATH="$path:$PATH"
+done
 
 command -v emacs >/dev/null && EDITOR=${EDITOR:-emacs}

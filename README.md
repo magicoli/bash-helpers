@@ -1,9 +1,5 @@
 # Bash helpers
 
-> Copyright 2015 Olivier van Helden <olivier@van-helden.net>.
-> Released under GNU Affero GPL v3.0 license, unless otherwise stated.
-> http://www.gnu.org/licenses/agpl-3.0.html
-
 A couple of useful tools for bash scripting.
 
 ## helpers
@@ -11,8 +7,15 @@ A couple of useful tools for bash scripting.
 With composer:
 
 ```
-composer config repositories.magicoli/bash-tools vcs git@github.com:magicoli/bash-tools.git
+composer config repositories.magicoli/bash-tools vcs git@github.com:magicoli/bash-tools.git &&
 composer require magicoli/bash-tools:@dev
+```
+
+Globally:
+
+```
+composer global config repositories.magicoli/bash-tools vcs git@git.magiiic.com:magicoli/bash-tools.git &&
+composer global require magicoli/bash-tools:dev-master"
 ```
 
 Put this line at the beginning of your script (_do not run the file directly, source it_):
