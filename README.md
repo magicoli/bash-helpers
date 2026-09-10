@@ -1,14 +1,21 @@
 # Bash helpers
 
->  Copyright 2015 Olivier van Helden <olivier@van-helden.net>.
->  Released under GNU Affero GPL v3.0 license, unless otherwise stated.
->  http://www.gnu.org/licenses/agpl-3.0.html
+> Copyright 2015 Olivier van Helden <olivier@van-helden.net>.
+> Released under GNU Affero GPL v3.0 license, unless otherwise stated.
+> http://www.gnu.org/licenses/agpl-3.0.html
 
 A couple of useful tools for bash scripting.
 
 ## helpers
 
-Put this line at the beginning of your script (*do not run the file directly, source it*):
+With composer:
+
+```
+composer config repositories.magicoli/bash-helpers vcs git@github.com:magicoli/bash-helpers.git
+composer require magicoli/bash-helpers:@dev
+```
+
+Put this line at the beginning of your script (_do not run the file directly, source it_):
 
 ```
 . /path/to/helpers
@@ -37,7 +44,7 @@ let's say you have a .ini file with this content
 	name = "Einstein"
 ```
 
-Put this line at the beginning of your script (*do not run the file directly, source it*):
+Put this line at the beginning of your script (_do not run the file directly, source it_):
 
 ```
 . /path/to/ini_parser
