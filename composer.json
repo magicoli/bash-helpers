@@ -1,0 +1,35 @@
+{
+	"name": "magicoli/bash-helpers",
+	"description": "Eclectic collection of bash tools and helpers.",
+	"type": "library",
+	"license": "AGPL-3.0-or-later",
+	"autoload": {
+		"psr-4": {
+			"Magicoli\\BashHelpers\\": "src/"
+		}
+	},
+	"authors": [
+		{
+			"name": "Olivier van Helden",
+			"email": "olivier@van-helden.net"
+		}
+	],
+	"require": {},
+	"bin": [
+		"cpuinfo",
+		"bash-helpers",
+		"ini_parser",
+		"mail-report",
+		"randompassword",
+		"stamp",
+		"stampfile",
+		"tildelete",
+		"titlecase",
+		"trash",
+		"tts",
+		"ucfirst",
+		"urlcoder",
+		"urldecoder",
+		"webnormalize"
+	]
+}

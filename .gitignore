@@ -4,3 +4,10 @@
 ._*
 .apdisk
 .#*
+vendor/
+**/.env
+.env
+.env.*
+!.env.example
+# The tests environment's sites: built whenever, kept never.
+.env
