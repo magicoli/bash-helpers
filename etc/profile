@@ -1,0 +1,16 @@
+vendor_dir=~/.composer/vendor
+for path in ~/.local/bin "$vendor_dir/bin" ~/bin; do
+	[ -d "$path" ] || continue
+	path=$(echo "$path" | sed "s:$HOME:~:")
+	echo ":$PATH:" | grep -q ":$path:" || export PATH="$path:$PATH"
+done
+
+if [ -d ~/$vendor_dir ]; then
+	for files in \
+		magicoli/bash-tools/etc/profile.d/* \
+		magicoli/bash-tools/etc/bash_completion.d/*; do
+		echo "source $file" >&2 && source "$vendor_dir/$file"
+	done
+fi
+
+command -v emacs >/dev/null && EDITOR=${EDITOR:-emacs}
