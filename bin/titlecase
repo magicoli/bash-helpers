@@ -13,6 +13,5 @@ $deprecation"
 
 source "$(dirname $self)/bash-helpers"
 
-log "[NOTICE] $deprecation"
-
 title_case "$@"
+log "[NOTICE] $deprecation"

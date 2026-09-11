@@ -59,7 +59,7 @@ debug_mode() {
 }
 
 log() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	local append err
 
 	err=$(echo "$1" | grep -E "^[0-9]+$" || true)
@@ -233,7 +233,7 @@ update_env_keys() {
 }
 
 ucfirst() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	word="$1"
 	shift
 	output=
@@ -254,7 +254,7 @@ lower_case() {
 }
 
 title_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	echo "$@" | while read line; do
 		output=
 		for word in $(words "$line"); do
@@ -269,7 +269,7 @@ words() {
 }
 
 transliterate() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	# ! command iconv && echo "$@" | tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" && return
 	string=$(iconv -c -f utf8 -t ascii//TRANSLIT <<<"${@}") || return $?
 	string=$(echo "$string" | sed "s/[^[:alnum:] _-]//g")
@@ -277,7 +277,7 @@ transliterate() {
 }
 
 camel_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		output=
 		for word in $(words "$line"); do
@@ -290,28 +290,28 @@ camel_case() {
 }
 
 pascal_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		title_case "$line" | sed "s/ //g"
 	done
 }
 
 snake_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]_"
 	done
 }
 
 kebab_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]-"
 	done
 }
 
 screaming_snake_case() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:lower:] " "[:upper:]_"
 	done
@@ -322,7 +322,7 @@ constant_case() {
 }
 
 dot_var() {
-	[ -z "$@" ] && return
+	[ -z "$*" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr " " "."
 	done
