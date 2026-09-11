@@ -4,238 +4,489 @@
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
+# Make sure we were not launched twice
+[ -n "${BASH_HELPERS:-}" ] && return
+BASH_HELPERS=$(realpath "${BASH_SOURCE:-notbash}")
+
+# Make sure we are sourced
+[ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" = "$0" ] && {
+	echo "$(basename "$0") is meant to be sourced, not run" >&2
+	exit 1
+}
+
 PID=$$
-[ "$PGM" ] || PGM=$(basename $0)
-[ "$TMP" ] || TMP=/tmp/$PGM.$PID
-[ "$LOCK" ] || LOCK=/tmp/.$PGM.lock
+PGM=${PGM:-$(basename "$0")}
+TMP=${TMP:-$(mktemp -t $PGM 2>/dev/null || mktemp -t $PGM.XXXXX 2>/dev/null || echo /tmp/$PGM.$$)}
+LOCK=${LOCK:-~/.$PGM.lock}
 
 trap 'rm -f $TMP.* $LOCK' EXIT
 
-SPC=$(echo "$PGM" | sed "s/./ /g")
-LOG=$TMP.log
-DATA="$HOME/.$PGM"
+BINDIR="$(cd $(dirname $BASH_SOURCE) && pwd)"
+BASEDIR="${BASEDIR:-$(dirname "$BINDIR")}"
+DEVDIR="${DEVDIR:-$BASEDIR/dev}"
+# COMPOSER_HOME=${COMPOSER_HOME:-$(command -v composer >/dev/null && composer config home -q)}
+# echo COMPOSER_HOME $COMPOSER_HOME
 
-COLOR_HIGHLIGHT="[1;31;40m"
-COLOR_NORMAL="[0;;m"
-# red='\e[1;31m'
-# green='\e[1;32m'
-# yel='\e[1;33m'
-# blu='\e[1;34m'
-# mag='\e[1;35m'
-# cyn='\e[1;36m'
-# end='\e[0m'
+for path in "$BASEDIR/vendor/bin" "$BASEDIR/bin" "$BINDIR"; do
+	echo ":$PATH:" | grep -q ":$path:" || export PATH="$path:$PATH"
+done
 
-[ ! "$ENDSUCCESS" ] && ENDSUCCESS="Succeed"
-[ ! "$ENDFAILED" ] && ENDFAILED="Failed"
+DEBUG=${DEBUG:-}
 
-if [ "$USETTS" = "yes" ]
-then
-    SAY=$(which tts) || SAY=$(which say) || SAY=$(which espeak) || unset SAY
-    echo "$SAY" | grep -q "/espeak$" && SAY="$SAY -v fr"
-else
-    SAY=echo
-fi
+## Generic tools
 
-echo "$0" | grep -q "^/" && BINDIR=$(dirname "$0") || BINDIR=$(dirname $(realpath "$0"))
-BASEDIR=$(dirname "$BINDIR")
-PATH=$BINDIR:$PATH
-
-help() {
-	[ "$HELP" ] && echo "$HELP" || usage
+# Utility functions for true/false checking
+is_true() {
+	lower=$(echo "${1:-}" | tr "[:upper:]" "[:lower:]")
+	case "$lower" in
+	yes | y | on | true | 1) return 0 ;;
+	*) return 1 ;;
+	esac
 }
 
-usage() {
-  if [ ! "$USAGE" ]
-  then
-    PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
-    PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
-        | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
-        | sed "s/.\///g" `
-    USAGE=$(echo $PGM $PAR $PAROPT "[...]" | sed "s/  / /g")
-  fi
-	echo "usage: $USAGE"
+is_false() {
+	lower=$(echo "${1:-}" | tr "[:upper:]" "[:lower:]")
+	case "$lower" in
+	no | n | off | false | 0) return 0 ;;
+	# "") return 0 ;;  # Empty is not false, it's null
+	*) return 1 ;; # Unknown is false
+	esac
+}
+
+# Debug checking function
+debug_mode() {
+	is_true "$DEBUG"
 }
 
 log() {
-	[ "$1" ] || return
-	if [ "$LOG" ]
-		then
-		ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
-		ERR=`echo $ERRNUM | grep [0-9] |sed "s/\([0-9]*\)/<\\1\> /"`
-		[ "$ERRNUM" ] && shift
-		LOGMESSAGE=$@
-		LOGLINE=`date +"%Y-%m-%d %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
-		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG)
-		if [ "$ERRNUM" ]
-			then
-			echo "${COLOR_HIGHLIGHT}$PGM:${COLOR_NORMAL} $LOGMESSAGE" >&2
-			[ "$USETTS" = "yes" ] && $SAY "Error $ERRNUM: $LOGMESSAGE" 2>/dev/null &
-		elif [ "$DEBUG" = "yes"  ]
-			then
-			# [ "$USETTS" = "yes" ] && $SAY "$LOGMESSAGE" &
-			echo "$PGM: $LOGMESSAGE" >&2
-		fi
-	else
-		echo "LOG variable not set"
-		exit 1
-	fi
+	[ -z "$1" ] && return
+	local append err
+
+	err=$(echo "$1" | grep -E "^[0-9]+$" || true)
+	[ -z "$err" ] || shift
+
+	case "$err" in
+	0) COLOR=${GREEN} ;;
+	"") COLOR=${YELLOW} ;;
+	*)
+		COLOR="$RED"
+		append=" ($err)"
+		;;
+	esac
+
+	[ "${1:-}" = "-n" ] && n="-n" && shift || n=
+	[ -n "$*" ] || return
+	printf "${COLOR}%s:${STD} %s\n" "$PGM" "$*${append:-}"
+}
+
+debug() {
+	debug_mode && log "$*" || true
+}
+
+success() {
+	log 0 "$@"
+}
+
+error() {
+	local err=$(echo "$1" | grep -E "^[0-9]+$" || true)
+	[ -z "$err" ] || shift
+	[ ${err:-0} -ne 0 ] || err=1
+	log ${err:-1} "$*"
+	return ${err:-1}
 }
 
 end() {
-	if [ "$1" ]
-		then
-		expr $1 + 0 >/dev/null 2>/dev/null && ERRNUM=$(($1 + 0)) && shift || ERRNUM=0
+	local caller_file="${BASH_SOURCE[1]}"
+	local caller_line="${BASH_LINENO[0]}"
+	# err=$(echo "$1" | grep -E "^[1-9][0-9]*$" || true)
+	local err=$(echo "${1:-}" | grep -E "^[0-9]+$" && shift || false)
+	[ -z "$err" ] || shift
+	if [ "$err" -a "$err" != "0" ]; then
+		prefix="[ERROR]"
+		debug_mode && suffix="$caller_file:$caller_line" || suffix=
 	else
-		ERRNUM=0
+		prefix=
+		suffix=
 	fi
 
-	if [ "$ERRNUM" -ne 0 ]
-		then
-		# ERRNUM=`expr $ERRNUM + 0`
-		# shift
-		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDFAILED
-		log $ERRNUM "$endMessage"
-	else
-		ERRNUM=0
-		[ "$1" = "0" ] && shift
-		[ "$#" -gt 0 ] && endMessage="$@" || endMessage=$ENDSUCCESS
-		log "$endMessage"
-		[ "$USETTS" = "yes" ] && $SAY "$endMessage" 2>/dev/null &
-	fi
-
-	rm -f $TMP $TMP.*
-	rm -f $LOG.lock
-	# [ -f $LOG ] && chmod -f 666 $LOG*
-
-	exit $ERRNUM
+	[ "${1:-}" = "-n" ] && n="-n" && shift || n=
+	local message=${@:-$(debug_mode && echo Finished processing)} || true
+	log $err $prefix "$message"
+	[ -n "$suffix" ] && echo "  trace: $suffix"
+	exit ${err:-0}
 }
 
-readvar() {
-    for var in $@
-    do
-	varname=$(echo $var | sed "s/\([a-z]\)\([A-Z]\)/\\1 \\2/g")
-	if [ "$AUTOMATIC" = "yes" ]
-	then
-	    echo "$varname: ${!var}"
-	else
-	    read -e -p "$varname: " -i "${!var}" $var
-	fi
-    done
+die() {
+	local err=$(echo "${1:-}" | grep -E "^[0-9]+$" || true)
+	[ -z "$err" ] || shift
+	[ ${err:-0} -ne 0 ] || err=1
+	end $err "$@"
 }
 
 yesno() {
-    default=n
-    choice="y/N"
-    [ "$1" = "y" ] && default=y && choice="Y/n" && shift
-    [ "$1" = "-y" ] && default=y && choice="Y/n" && shift
-    [ "$@" ] && message="$@" || message="Answer"
-    message="$message ($choice) "
-    read -u1 -p "$message" answer
-    [ "$answer" = "" ] && answer=$default
-    answer=$(echo "$answer" | tr "[:upper:]" "[:lower:]")
-    [ "$answer" = "y" ] && return 0
-    [ "$answer" = "yes" ] && return 0
-    return 1
+	default=n
+	choice="y/N"
+	[ "$1" = "y" ] && default=y && choice="Y/n" && shift
+	[ "$1" = "-y" ] && default=y && choice="Y/n" && shift
+	[ "$@" ] && message="$@" || message="Answer"
+	message="$message ($choice) "
+	read -u1 -p "$message" answer
+	[ "$answer" = "" ] && answer=$default
+	answer=$(echo "$answer" | tr "[:upper:]" "[:lower:]")
+	[ "$answer" = "y" ] && return 0
+	[ "$answer" = "yes" ] && return 0
+	return 1
 }
 
-istrue() {
-  answer=$(echo $1 | tr "[:upper:]" "[:lower:]")
-  case $answer in
-    y|yes|o|oui|t|true)
-    # log "answer $1 is true"
-    return
-    ;;
-  esac
-  # log "answer $1 is false"
-  return -1
+readvar() {
+	for var in $@; do
+		varname=$(echo $var | sed "s/\([a-z]\)\([A-Z]\)/\\1 \\2/g")
+		if [ "$AUTOMATIC" = "yes" ]; then
+			echo "$varname: ${!var}"
+		else
+			read -e -p "$varname: " -i "${!var}" $var
+		fi
+	done
+}
+
+clean_path() {
+	keepifs=$IFS
+	IFS=:
+	for path in $PATH; do
+		path=$(echo $path | sed "s:/$::")
+		[ -d $path ] || continue
+		echo ":$newpath:" | grep -q ":$path:" && continue
+		newpath="$newpath:$path"
+	done
+	IFS=$keepifs
+	PATH=$(echo $newpath | sed "s/^://")
+}
+
+prepend_path() {
+	for path in "$@"; do
+		[ -f "$path" ] && path=$(dirname $(realpath "$path"))
+		[ -d "$path" ] && PATH="$PATH:$path"
+	done
+	clean_path
+}
+
+add_path() {
+	local position
+
+	for p; do
+		case $p in
+		-b | --before) position=before ;;
+		-a | --after) position=after ;;
+		esac
+		log position $position
+	done
+
+	for path in $(echo $@ | tr ' ' '\n' | tac | tr '\n' ' '); do
+		[ -f "$path" ] && path=$(cd $(dirname "$path") && pwd)
+		[ -d "$path" ] && add="${add:+${add}:}$path"
+	done
+	log "add ${add:-}"
+	# clean_path
+}
+
+append_path() {
+	for path in $(echo $@ | tr ' ' '\n' | tac | tr '\n' ' '); do
+		[ -f "$path" ] && path=$(cd $(dirname "$path") && pwd)
+		[ -d "$path" ] && PATH="$path:$PATH"
+	done
+	clean_path
+}
+
+update_env() {
+	local key=$1
+	shift
+	value="$@"
+	[ -f "$ENV_FILE" ] || touch $ENV_FILE
+	if egrep -q "^[# ]*${key}=($value|\"$value\"|'$value')" $ENV_FILE; then
+		debug "  no change for ${key}, skipping"
+		return
+	elif egrep -q "^[# ]*${key}=" $ENV_FILE; then
+		sed -i~ "s+^[# ]*${key}=.*+${key}=${value}+" $ENV_FILE &&
+			debug "  updated ${key} in $ENV_FILE" &&
+			return ||
+			error "  could update $key in $ENV_FILE"
+	else
+		echo "${key}=${value}" >>$ENV_FILE &&
+			debug "  added ${key} to $ENV_FILE" &&
+			return ||
+			error "  could not add $key to $ENV_FILE"
+	fi
+	return $?
+}
+
+update_env_keys() {
+	local errors=0
+	[ -f "$ENV_FILE" ] || touch $ENV_FILE
+	for key in "$@"; do
+		local value="${!key:-}"
+		[ -z "$value" ] && continue
+		update_env "$key" "${value}" && continue
+		error "could not store $key in $ENV_FILE"
+		errors=$((errors + 1))
+	done
+	return $errors
 }
 
 ucfirst() {
-    upper=$(echo $@ | cut -c 1 | tr "[:lower:]" "[:upper:]")
-    lower=$(echo $@ | cut -c 2- | tr "[:upper:]" "[:lower:]")
-    echo "$upper$lower"
+	[ -z "$1" ] && return
+	word="$1"
+	shift
+	output=
+	output+="$(tr '[:lower:]' '[:upper:]' <<<${word:0:1})"
+	echo "${word:1}" | grep -q "[a-z]" &&
+		output+="${word:1}" ||
+		output+="$(tr '[:upper:]' '[:lower:]' <<<${word:1})"
+
+	echo "$output $@" | sed "s/ *$//"
+}
+
+upper_case() {
+	echo "$@" | tr '[:lower:]' '[:upper:]'
+}
+
+lower_case() {
+	echo "$@" | tr '[:upper:]' '[:lower:]'
+}
+
+words() {
+	echo "$@" | sed -E "s/[^a-z0-9]+/ /gi; s/([a-z])([A-Z])/\1 \2/g; s/^[^a-z0-9]+//gi; s/[^a-z0-9]+$//gi;"
+}
+
+camel_case() {
+	[ -z "$1" ] && return
+	echo "$@" | while read line; do
+		output=
+		for word in $(words "$line"); do
+			[ -z "$output" ] &&
+				output="$(lower_case "$word")" ||
+				output+="$(ucfirst "${word}")"
+		done
+		echo ${output:-}
+	done
+}
+
+pascal_case() {
+	[ -z "$1" ] && return
+	echo "$@" | while read line; do
+		output=
+		for word in $(words "$line"); do
+			output+="$(ucfirst "${word}")"
+		done
+		echo ${output:-}
+	done
+}
+
+snake_case() {
+	[ -z "$1" ] && return
+	echo "$@" | while read line; do
+		words "${line}" | tr "[:upper:] " "[:lower:]_"
+	done
+}
+
+kebab_case() {
+	[ -z "$1" ] && return
+	echo "$@" | while read line; do
+		words "${line}" | tr "[:upper:] " "[:lower:]-"
+	done
+}
+screaming_snake_case() {
+	[ -z "$1" ] && return
+	echo "$@" | while read line; do
+		words "${line}" | tr "[:lower:] " "[:upper:]_"
+	done
+}
+
+constant_case() {
+	screaming_snake_case "$@"
+}
+
+get_config() {
+	[ -z "${ENV_PATTERN:-}" ] && log 1 "$(system_message error_env_pattern_missing)" && return 1
+	set | egrep "${ENV_PATTERN:-}" || log 1 "$(system_message error_empty_config)"
+}
+
+usage() {
+	if [ ! "$USAGE" ]; then
+		PAR=$(echo $OPTS | sed 's/.://g' | grep -v "^$" | sed "s/\([a-zA-Z0-9]*\)/[-\1]/g")
+		PAROPT=$(echo $OPTS | sed "s/-://" | sed 's/\(.\)/\1\//g' |
+			sed 's/\(.\)\/:\//[-\1 <value>] /g' |
+			sed "s/.\///g")
+		USAGE=$(echo $PGM $PAR $PAROPT "[...]" | sed "s/  / /g")
+	fi
+	echo "usage: $USAGE"
+}
+
+help() {
+	usage
+	[ -n "${HELP:-}" ] && echo "$HELP"
 }
 
 convertsecs() {
-  d=$(($1/86400))
-  [ $d = 1 ] && days="$d day "
-  [ $d -gt 1 ] && days="$d days "
-  h=$(($1%86400/3600))
-  m=$(($1%3600/60))
-  s=$(($1%60))
-  printf "$days%02d:%02d:%02d\n" $h $m $s | sed -e "s/^00://g" -e "s/^00:0*\([0-9][0-9]*\)/\\1 seconds/g" -e "s/^[01] seconds/1 second/" -e "s/ 00:00:00$//"
+	d=$(($1 / 86400))
+	[ $d = 1 ] && days="$d day "
+	[ $d -gt 1 ] && days="$d days "
+	h=$(($1 % 86400 / 3600))
+	m=$(($1 % 3600 / 60))
+	s=$(($1 % 60))
+	printf "$days%02d:%02d:%02d\n" $h $m $s | sed -e "s/^00://g" -e "s/^00:0*\([0-9][0-9]*\)/\\1 seconds/g" -e "s/^[01] seconds/1 second/" -e "s/ 00:00:00$//"
 }
 
 countdown() {
-  [ "$1" ] && secs=$1 && shift || secs=5
-  [ "$1" ] && msg=$@ || msg=Countdown
-  while [ $secs -gt 0 ]
-  do
-    time=$(convertsecs $secs)
-    printf "\r\033[K$msg $time"
-    secs=$(($secs - 1))
-    read -t 1 && return
-  done
-  printf "\r\033[K"
+	[ "$1" ] && secs=$1 && shift || secs=5
+	[ "$1" ] && msg=$@ || msg=Countdown
+	while [ $secs -gt 0 ]; do
+		time=$(convertsecs $secs)
+		printf "\r\033[K$msg $time"
+		secs=$(($secs - 1))
+		read -t 1 && return
+	done
+	printf "\r\033[K"
 }
 
-[ ! "$OPTS" ]  && OPTS="hvq"
-PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
-PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
-    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
-    | sed "s/.\///g" `
-[ ! "$USAGE" ] && USAGE=$(echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g")
-[ ! "$HELP" ] && HELP="
-  -h, --help  help
-  -q  quiet
-  -v  verbose
-"
-echo "$HELP" | grep -q "[Uu]sage:" || HELP="$(usage)
+ansi_color() {
+	for p; do
+		case $p in
+		black) color=0 ;;
+		red) color=1 ;;
+		green) color=2 ;;
+		yellow) color=3 ;;
+		blue) color=4 ;;
+		purple) color=5 ;;
+		cyan) color=6 ;;
+		white) color=7 ;;
 
-$HELP"
+		regular) style=0 ;;
+		bold) style=1 ;;
+		underline) style=4 ;;
 
-if [ "$OPTSINHELPER" = "yes" ]
-then
+		background) scope=4 ;;
+		high) high=yes ;;
+		*) ;;
+		esac
+	done
+	style=${style:-0}
+	color=${color:-0}
+	scope=${scope:-3}
 
-while getopts $OPTS PARAM
-  do
-    case $PARAM in
-    "?")
-      ERROR=1
-      ;;
-    -)
-      case $OPTARG in
-      help)
-        help; end
-        ;;
-      quiet)
-        STDOUT="/dev/null"
-        QUIET=yes
-        DEBUG=no
-        ;;
-      verbose)
-        STDERR="&1"
-        DEBUG=yes
-        ;;
-      esac
-      ;;
-    h)
-      help; end
-      ;;
-    v)
-      STDERR="&1"
-      DEBUG=yes
-      ;;
-    q)
-      STDOUT="/dev/null"
-      QUIET=yes
-      DEBUG=no
-      ;;
-  esac
-done 2>/dev/null
+	if is_true ${high:-}; then
+		[ $scope -eq 4 ] && scope=10 || scope=9
+	fi
 
-  [ $ERROR ] && end $ERROR "$(usage)
-  type '$PGM --help' for more info"
-fi
-OPTPROCESSED=$OPTIND
-OPTIND=1
+	printf "\033[%d;%d%dm[%d;%d%d]" ${style:-0} ${scope:-3} ${color:-0} ${style:-0} ${scope:-3} ${color:-0}
+}
+
+ansi_reset() {
+	printf "\033[0m"
+}
+
+# Set environment
+
+APP_ENV=${APP_ENV:-}
+ENV_SUFFIX=${APP_ENV:+.${APP_ENV}}
+
+[ -f "$BASEDIR/.env" ] || debug "No .env, using defaults, copy $BASEDIR/.env.example as .env and edit adjust to your needs"
+# The base file first and the environment's on top of it: .env carries what
+# every environment shares, .env.$APP_ENV what makes this one itself. Chained
+# with && and || they came out the other way round -- a && b || c && d runs d
+# whenever the first pair succeeded -- so both were read, base last, and .env
+# quietly won every difference.
+for path in "$BASEDIR" "$BASEDIR/${APP_ENV}"; do
+	[ -f "$path/.env" ] && source "$path/.env" || true
+	[ -n "$ENV_SUFFIX" ] && [ -f "$path/.env${ENV_SUFFIX}" ] && source "$path/.env${ENV_SUFFIX}" || true
+done
+
+## Read command line arguments
+
+# Default options, may be expanded or overridden in parent script
+OPTS="${OPTS:-hqv}"
+LONGOPTS="${LONGOPTS:+${LONGOPTS},}testing,dev,help,quiet,verbose"
+SYNTAX="${SYNTAX:-$(echo $(
+	echo $OPTS | sed "s/-://g" | sed "s/\(.*\)/[-\\1] [<args>]/g" | sed "s/\(.\):/] [-\\1 <value>/g"
+	echo $LONGOPTS | sed "s/,/] [--/g; s/^/[--/; s/$/]/"
+))}"
+
+USAGE=${USAGE:-$PGM $SYNTAX}
+
+ARGS=()
+for o; do
+	case $o in
+	# -p | --path)
+	# 	debug "opt $o set to $2"
+	# 	;;
+	-h | --help)
+		debug "opt --help"
+		help
+		end
+		;;
+	-q | --quiet)
+		debug "opt --quiet"
+		STDOUT="/dev/null"
+		QUIET=yes
+		DEBUG=no
+		;;
+	--testing | --tests | --test) shift ;;
+	--prod | --production) shift ;;
+	--local | --testing | --dev | --production) shift ;;
+	-v | --verbose)
+		STDERR="&1"
+		DEBUG=yes
+		debug "opt --verbose"
+		;;
+	*)
+		ARGS+=("$o")
+		;;
+	esac
+done
+ARGS=${ARGS:-}
+[ ${ERROR:-} ] && usage && echo && die "$ERROR"
+
+# Back to the script, which parses its own from here. Positional parameters set
+# in a sourced file are the caller's, which is what makes this work at all.
+set -- ${ARGS[@]+"${ARGS[@]}"}
+
+[ "$#" -eq 0 ] || debug "args left for the script: $*"
+
+STDOUT=${STDOUT:-"&1"}
+STDERR=${STDERR:-"&2"}
+QUIET=${QUIET:-}
+
+STD=$(ansi_reset)
+BLACK=$(ansi_color bold black)
+RED=$(ansi_color bold red)
+GREEN=$(ansi_color bold green)
+YELLOW=$(ansi_color bold yellow)
+BLUE=$(ansi_color bold blue)
+PURPLE=$(ansi_color bold purple)
+CYAN=$(ansi_color bold cyan)
+WHITE=$(ansi_color bold white)
+
+BG_BLACK=$(ansi_color background black)
+BG_RED=$(ansi_color background red)
+BG_GREEN=$(ansi_color background green)
+BG_YELLOW=$(ansi_color background yellow)
+BG_BLUE=$(ansi_color background blue)
+BG_PURPLE=$(ansi_color background purple)
+BG_CYAN=$(ansi_color background cyan)
+BG_WHITE=$(ansi_color background white)
+
+COLOR_HIGHLIGHT="${BG_BLACK}"
+COLOR_NORMAL="${STD}"
+
+ENDSUCCESS=${ENDSUCCESS:-"Succeed"}
+ENDFAILED=${ENDFAILED:-"Failed"}
+
+TTS_ENABLED=$(is_true ${TTS_ENABLED:-no} && echo yes || echo no)
+ENV_FILE=$BASEDIR/$(echo .env${ENV_SUFFIX} | sed "s/.local$//")
+# update_env_keys ADMIN_PASSWORD DB_PASSWORD MUM_PUSH_KEY
+
+TTS_LANG=${LC_MESSAGES:-${LC_ALL:-${LANG:-en}}}
+TTS_LANG=$(echo "$TTS_LANG" | sed -E "s/^([a-z]+).*/\\1/")
+
+is_true "${TTS_ENABLED:-}" &&
+	SAY=$(which tts || which say || echo echo) ||
+	SAY=echo
