@@ -59,7 +59,7 @@ debug_mode() {
 }
 
 log() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	local append err
 
 	err=$(echo "$1" | grep -E "^[0-9]+$" || true)
@@ -233,7 +233,7 @@ update_env_keys() {
 }
 
 ucfirst() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	word="$1"
 	shift
 	output=
@@ -253,12 +253,23 @@ lower_case() {
 	echo "$@" | tr '[:upper:]' '[:lower:]'
 }
 
+title_case() {
+	[ -z "$@" ] && return
+	echo "$@" | while read line; do
+		output=
+		for word in $(words "$line"); do
+			output="${output:+ $output}$(ucfirst "${word}") "
+		done
+		echo ${output:-}
+	done
+}
+
 words() {
 	echo "$@" | sed -E "s/[^a-z0-9]+/ /gi; s/([a-z])([A-Z])/\1 \2/g; s/^[^a-z0-9]+//gi; s/[^a-z0-9]+$//gi;"
 }
 
 transliterate() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	# ! command iconv && echo "$@" | tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" && return
 	string=$(iconv -c -f utf8 -t ascii//TRANSLIT <<<"${@}") || return $?
 	string=$(echo "$string" | sed "s/[^[:alnum:] _-]//g")
@@ -266,7 +277,7 @@ transliterate() {
 }
 
 camel_case() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
 		output=
 		for word in $(words "$line"); do
@@ -279,32 +290,28 @@ camel_case() {
 }
 
 pascal_case() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
-		output=
-		for word in $(words "$line"); do
-			output+="$(ucfirst "${word}")"
-		done
-		echo ${output:-}
+		title_case "$line" | sed "s/ //g"
 	done
 }
 
 snake_case() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]_"
 	done
 }
 
 kebab_case() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]-"
 	done
 }
 
 screaming_snake_case() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:lower:] " "[:upper:]_"
 	done
@@ -315,7 +322,7 @@ constant_case() {
 }
 
 dot_var() {
-	[ -z "$1" ] && return
+	[ -z "$@" ] && return
 	transliterate "$@" | while read line; do
 		words "${line}" | tr " " "."
 	done
@@ -364,7 +371,7 @@ convertsecs() {
 	h=$(($1 % 86400 / 3600))
 	m=$(($1 % 3600 / 60))
 	s=$(($1 % 60))
-	printf "$days%02d:%02d:%02d\n" $h $m $s | sed -e "s/^00://g" -e "s/^00:0*\([0-9][0-9]*\)/\\1 seconds/g" -e "s/^[01] seconds/1 second/" -e "s/ 00:00:00$//"
+	printf "%s%02d:%02d:%02d\n" "${days:-}" $h $m $s | sed -e "s/^00://g" -e "s/^00:0*\([0-9][0-9]*\)/\\1 seconds/g" -e "s/^[01] seconds/1 second/" -e "s/ 00:00:00$//"
 }
 
 countdown() {

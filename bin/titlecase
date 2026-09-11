@@ -4,24 +4,15 @@
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
-export PATH=$(dirname "$0"):$PATH
+set -u
+self=$(realpath "${BASH_SOURCE:-$0}" 2>/dev/null)
 
-string=$(
-	echo $@ |
-		tr "[:upper:]" "[:lower:]" |
-		tr "áàâäéèêëíìîïóòôöúùûüç" "aaaaeeeeiiiioooouuuuc" |
-		sed "s/[œŒ]/oe/g" |
-		urlcoder -e |
-		sed "s/%26/,/g" |
-		sed "s/+/ /g" |
-		sed "s/ ,/,/g" |
-		sed "s/\%[A-Z0-9][A-Z0-9]//g"
-)
+deprecation="$(basename ${self}) is deprecated, use bash-helpers title_case function instead"
+HELP="
+$deprecation"
 
-for word in $string; do
-	upper=$(echo $word | cut -c 1 | tr "[:lower:]" "[:upper:]")
-	lower=$(echo $word | cut -c 2- | tr "[:upper:]" "[:lower:]")
-	printf "$space$upper$lower"
-	space=" "
-done
-echo
+source "$(dirname $self)/bash-helpers"
+
+log "[NOTICE] $deprecation"
+
+title_case "$@"
