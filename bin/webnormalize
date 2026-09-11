@@ -4,27 +4,41 @@
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
+set -u
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/bash-helpers"
+
+debug "Deprecated, use bash-helpers functions instead: upper_case lower_case camel_case pascal_case snake_case kebab_case screaming_snake_case constant_case"
+
 OS=$(uname -a | cut -d " " -f 1 | sed "s/[^a-zA-Z0-9]//g")
 
-if [ "$1" ]; then
-	for name in "$@"; do
-		echo "$name"
+cmd=kebab_case
+for o; do
+	case $o in
+	-d | --dot)
+		cmd=dot_var
+		shift
+		;;
+	-u | --underscore)
+		cmd=snake_case
+		shift
+		;;
+	-k | --kebab)
+		cmd=kebab_case
+		shift
+		;;
+	esac
+done
+
+[ "$#" -eq 0 ] || debug "args to process: $*"
+
+if [ "${1/-/}" ]; then
+	for string in "$@"; do
+		echo "$string"
 	done
 else
 	cat
-fi | while read name; do
-	if [ "$OS" = "Darwin" ]; then
-		echo "$name" |
-			tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" |
-			sed "s|[\`´'^]||g"
-	else
-		echo "$name" |
-			iconv -f utf-8 -t ascii//translit
-	fi | tr " [:upper:]" "_[:lower:]" |
-		sed "s|[^a-zA-Z0-9_\./-]*||g" |
-		sed "s|__*|_|g" |
-		sed "s/_*--*_*/-/g"
+fi | while read string; do
+	$cmd "$string"
 done
-
-# \
-#  	| tr "\n" "_" | sed "s|__*|_|g" | sed "s|_$||g"

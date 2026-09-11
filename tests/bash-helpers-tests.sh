@@ -122,12 +122,20 @@ log "ENV_FILE=${ENV_FILE}"
 log "TTS_LANG=${TTS_LANG}"
 log "SAY=${SAY}"
 
-for string in "Hello, World!" HelloWorld hello-world HELLO_WORLD HelloWORLD; do
+for string in "Hello, World!" HelloWorld hello-world HELLO_WORLD HelloWORLD "Héllô Âccèñt"; do
 	log "$string"
-	log "  ucfirst:              $(ucfirst "$string")"
 	log "  kebab_case:           $(kebab_case "$string")"
 	log "  snake_case:           $(snake_case "$string")"
 	log "  screaming_snake_case: $(screaming_snake_case "$string")"
 	log "  camel_case:           $(camel_case "$string")"
 	log "  pascal_case:          $(pascal_case "$string")"
+	log "  lower_case:           $(lower_case "$string")"
+	log "  upper_case:           $(upper_case "$string")"
+	log "  ucfirst:              $(ucfirst "$string")"
+	log "  transliterate:        $(transliterate "$string")"
+	log "  webnormalize:         $(webnormalize "$string")"
+	log "  webnormalize -d:      $(webnormalize -d "$string")"
+	log "  webnormalize -u:      $(webnormalize -u "$string")"
+	log "  webnormalize -k:      $(webnormalize -k "$string")"
+	log "  dot_var:              $(dot_var "$string")"
 done

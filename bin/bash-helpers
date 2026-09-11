@@ -257,9 +257,17 @@ words() {
 	echo "$@" | sed -E "s/[^a-z0-9]+/ /gi; s/([a-z])([A-Z])/\1 \2/g; s/^[^a-z0-9]+//gi; s/[^a-z0-9]+$//gi;"
 }
 
+transliterate() {
+	[ -z "$1" ] && return
+	# ! command iconv && echo "$@" | tr ", áàâäéèêëíìîïóòôöúùûüçñ" "__aaaaeeeeiiiioooouuuucn" && return
+	string=$(iconv -c -f utf8 -t ascii//TRANSLIT <<<"${@}") || return $?
+	string=$(echo "$string" | sed "s/[^[:alnum:] _-]//g")
+	echo "$string"
+}
+
 camel_case() {
 	[ -z "$1" ] && return
-	echo "$@" | while read line; do
+	transliterate "$@" | while read line; do
 		output=
 		for word in $(words "$line"); do
 			[ -z "$output" ] &&
@@ -272,7 +280,7 @@ camel_case() {
 
 pascal_case() {
 	[ -z "$1" ] && return
-	echo "$@" | while read line; do
+	transliterate "$@" | while read line; do
 		output=
 		for word in $(words "$line"); do
 			output+="$(ucfirst "${word}")"
@@ -283,26 +291,34 @@ pascal_case() {
 
 snake_case() {
 	[ -z "$1" ] && return
-	echo "$@" | while read line; do
+	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]_"
 	done
 }
 
 kebab_case() {
 	[ -z "$1" ] && return
-	echo "$@" | while read line; do
+	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:upper:] " "[:lower:]-"
 	done
 }
+
 screaming_snake_case() {
 	[ -z "$1" ] && return
-	echo "$@" | while read line; do
+	transliterate "$@" | while read line; do
 		words "${line}" | tr "[:lower:] " "[:upper:]_"
 	done
 }
 
 constant_case() {
 	screaming_snake_case "$@"
+}
+
+dot_var() {
+	[ -z "$1" ] && return
+	transliterate "$@" | while read line; do
+		words "${line}" | tr " " "."
+	done
 }
 
 get_config() {
@@ -377,12 +393,39 @@ ansi_color() {
 		[ $scope -eq 4 ] && scope=10 || scope=9
 	fi
 
-	printf "\033[%d;%d%dm[%d;%d%d]" ${style:-0} ${scope:-3} ${color:-0} ${style:-0} ${scope:-3} ${color:-0}
+	# printf "\033[%d;%d%dm[%d;%d%d]" ${style:-0} ${scope:-3} ${color:-0} ${style:-0} ${scope:-3} ${color:-0}
+	printf "\033[%d;%d%dm" ${style:-0} ${scope:-3} ${color:-0}
 }
 
 ansi_reset() {
 	printf "\033[0m"
 }
+
+STDOUT=${STDOUT:-"&1"}
+STDERR=${STDERR:-"&2"}
+QUIET=${QUIET:-}
+
+STD=$(ansi_reset)
+BLACK=$(ansi_color bold black)
+RED=$(ansi_color bold red)
+GREEN=$(ansi_color bold green)
+YELLOW=$(ansi_color bold yellow)
+BLUE=$(ansi_color bold blue)
+PURPLE=$(ansi_color bold purple)
+CYAN=$(ansi_color bold cyan)
+WHITE=$(ansi_color bold white)
+
+BG_BLACK=$(ansi_color background black)
+BG_RED=$(ansi_color background red)
+BG_GREEN=$(ansi_color background green)
+BG_YELLOW=$(ansi_color background yellow)
+BG_BLUE=$(ansi_color background blue)
+BG_PURPLE=$(ansi_color background purple)
+BG_CYAN=$(ansi_color background cyan)
+BG_WHITE=$(ansi_color background white)
+
+COLOR_HIGHLIGHT="${BG_BLACK}"
+COLOR_NORMAL="${STD}"
 
 # Set environment
 
@@ -449,33 +492,7 @@ ARGS=${ARGS:-}
 # in a sourced file are the caller's, which is what makes this work at all.
 set -- ${ARGS[@]+"${ARGS[@]}"}
 
-[ "$#" -eq 0 ] || debug "args left for the script: $*"
-
-STDOUT=${STDOUT:-"&1"}
-STDERR=${STDERR:-"&2"}
-QUIET=${QUIET:-}
-
-STD=$(ansi_reset)
-BLACK=$(ansi_color bold black)
-RED=$(ansi_color bold red)
-GREEN=$(ansi_color bold green)
-YELLOW=$(ansi_color bold yellow)
-BLUE=$(ansi_color bold blue)
-PURPLE=$(ansi_color bold purple)
-CYAN=$(ansi_color bold cyan)
-WHITE=$(ansi_color bold white)
-
-BG_BLACK=$(ansi_color background black)
-BG_RED=$(ansi_color background red)
-BG_GREEN=$(ansi_color background green)
-BG_YELLOW=$(ansi_color background yellow)
-BG_BLUE=$(ansi_color background blue)
-BG_PURPLE=$(ansi_color background purple)
-BG_CYAN=$(ansi_color background cyan)
-BG_WHITE=$(ansi_color background white)
-
-COLOR_HIGHLIGHT="${BG_BLACK}"
-COLOR_NORMAL="${STD}"
+[ "$#" -eq 0 ] || debug "un processed args passed to the main script: $*"
 
 ENDSUCCESS=${ENDSUCCESS:-"Succeed"}
 ENDFAILED=${ENDFAILED:-"Failed"}
