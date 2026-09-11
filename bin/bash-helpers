@@ -321,6 +321,21 @@ dot_var() {
 	done
 }
 
+urlencode() {
+	if command -v jq >/dev/null; then
+		jq -rn --arg x "$string" '$x|@uri'
+	else
+		debug "jq not installed, fallback to degraded urlencode method"
+		printf '%s' "$@" | while IFS='' read -n 1 c; do [[ "$c" =~ [A-Za-z0-9.~_-] ]] && printf "$c" || printf '%%%02X' "'$c"; done
+		return 1
+	fi
+}
+
+urldecode() {
+	: "${*//+/ }"
+	echo -e "${_//%/\\x}"
+}
+
 get_config() {
 	[ -z "${ENV_PATTERN:-}" ] && log 1 "$(system_message error_env_pattern_missing)" && return 1
 	set | egrep "${ENV_PATTERN:-}" || log 1 "$(system_message error_empty_config)"

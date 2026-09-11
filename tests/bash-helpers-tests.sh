@@ -122,7 +122,7 @@ log "ENV_FILE=${ENV_FILE}"
 log "TTS_LANG=${TTS_LANG}"
 log "SAY=${SAY}"
 
-for string in "Hello, World!" HelloWorld hello-world HELLO_WORLD HelloWORLD "Héllô Âccèñt"; do
+for string in "Hello, World!" HelloWorld hello-world HELLO_WORLD HelloWORLD "Héllô / Âccèñts + other @stuff"; do
 	log "$string"
 	log "  kebab_case:           $(kebab_case "$string")"
 	log "  snake_case:           $(snake_case "$string")"
@@ -138,4 +138,6 @@ for string in "Hello, World!" HelloWorld hello-world HELLO_WORLD HelloWORLD "Hé
 	log "  webnormalize -u:      $(webnormalize -u "$string")"
 	log "  webnormalize -k:      $(webnormalize -k "$string")"
 	log "  dot_var:              $(dot_var "$string")"
+	log "  urlencode:            $(urlencode "$string")"
+	log "  urldecode:            $(urldecode "$(urlencode "$string")")"
 done

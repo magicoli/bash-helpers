@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+# Copyright 2015 Olivier van Helden <olivier@van-helden.net>
+# Released under GNU Affero GPL v3.0 license
+#    http://www.gnu.org/licenses/agpl-3.0.html
+
+# ."   -f  filename to de/encode if no file name is given input will be taken from STDIN.\n"
+# ."   -e  Encode the input.\n"
+# ."   -d  Decode the input.\n"
+# ."   -v  Show the version.\n"
+# ."   -h  Show this help.\n"
+
+set -u
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SELF_DIR/bash-helpers"
+
+deprecation="Deprecated, use bash-helpers functions instead: urlencode, urldecode"
+
+OS=$(uname -a | cut -d " " -f 1 | sed "s/[^a-zA-Z0-9]//g")
+
+[ "$PGM" = "urldecoder" ] && cmd=urldecode || cmd=urlencode
+for o; do
+	case $o in
+	-f)
+		shift
+		files="$@"
+		;;
+	-e | --encode)
+		cmd=urlencode
+		shift
+		;;
+	-d | --decode)
+		cmd=urldecode
+		shift
+		;;
+	-v | --version | -h | --help)
+		end "$deprecation"
+		;;
+	esac
+done
+
+[ "$#" -eq 0 ] || debug "args to process: $*"
+log "[NOTICE] $deprecation"
+
+if [ "${1/-/}" ]; then
+	for string in "$@"; do
+		echo "$string"
+	done
+else
+	cat
+fi | while read string; do
+	$cmd "$cmd $string"
+done
