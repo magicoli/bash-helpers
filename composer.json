@@ -2,6 +2,7 @@
 	"name": "magicoli/bash-tools",
 	"description": "Eclectic collection of bash tools and helpers.",
 	"type": "library",
+	"version": "1.0.0-beta-1",
 	"license": "AGPL-3.0-or-later",
 	"autoload": {
 		"psr-4": {

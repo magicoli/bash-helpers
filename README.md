@@ -1,77 +1,89 @@
-# Bash helpers
+# Bash Tools
 
-A couple of useful tools for bash scripting.
+![Version](https://img.shields.io/badge/Version-1.0.0--beta--1-orange)
+![Stable](https://img.shields.io/badge/Stable----lightgrey)
+![bash](https://img.shields.io/badge/bash-5.x+-red)
 
-## helpers
+A couple of useful tools for bash scripting. Available either directly from the repo clone, or as a composer package.
+
+## Features
+
+**Functions** (source `bash-helpers` to make them available in your script):
+
+- **ui**: error, help, log, readvar, success, usage, yesno
+- **colors**: ansi_color $color $style $scope, ansi_reset
+- **colors shortcuts**: ($BLACK, $RED, $GREEN, $BG_BLACK, $BG_RED...)
+- **path manipulation**: append_path, prepend_path, add_path, clean_path
+- **strings conversion**: transliterate, words, ucfirst, camel_case, constant_case, kebab_case, lower_case, upper_case, pascal_case, screaming_snake_case, snake_case, dot_var
+- **boolean conversion** (y/n, yes/no, true/false, ...): is_false, is_true
+- **time**: convertsecs, countdown
+- **dev**: debug, debug_mode, die, end, get_config, update_env, update_env_keys, urldecode, urlencode
+
+**Common scripts**, added to vendor binaries (`vendor/bin`)
+
+- cpuinfo
+- ini_parser
+- mail-report
+- randompassword
+- stamp
+- stampfile
+- tildelete
+- titlecase
+- trash
+- tts
+
+**Other scripts** available from `bash-helpers/bin` directory (mostly backwards-compatibility wrappers for tools available in bash-helpers functions):
+
+- bin/ucfirst
+- bin/urlcoder
+- bin/urldecoder
+- bin/urlencoder
+- bin/webnormalize
+
+## Installation in your project
 
 With composer:
 
-```
-composer config repositories.magicoli/bash-tools vcs git@github.com:magicoli/bash-tools.git &&
-composer require magicoli/bash-tools:@dev
-```
-
-Globally:
-
-```
-composer global config repositories.magicoli/bash-tools vcs git@git.magiiic.com:magicoli/bash-tools.git &&
-composer global require magicoli/bash-tools:dev-master"
+```bash
+composer require magicoli/bash-tools
 ```
 
-Put this line at the beginning of your script (_do not run the file directly, source it_):
+### Use bash-helpers functions
 
-```
-source /path/to/helpers
-```
+Put this line at the beginning of your script (_do not run the file directly, source it_), to provide the most common functions to your script.
 
-and use these functions inside the script
-
-```
-end [errornumber] [message]
-log [errornumber] [message]
-readvar [var]
-yesno [-y] ["message"]
-ucfirst [string]
+```bash
+#!/usr/bin/env bash
+source vendor/bin/bash-helpers
+# or source <path-to-repo>/bin/bash-helpers
 ```
 
-## ini_parser
+## Global installation (for use from terminal or any script)
 
-A tool to read .ini config in bash scripts
+### With composer:
 
-let's say you have a .ini file with this content
-
-```
-[Default]
-	name = "Albert"
-[Smart]
-	name = "Einstein"
+```bash
+composer global require magicoli/bash-tools"
 ```
 
-Put this line at the beginning of your script (_do not run the file directly, source it_):
+Insert in `~/.bashrc` or `~/.profile`, according to your system:
 
-```
-. /path/to/ini_parser
-```
+```bash
+# Verify your composer home (usually ~/.composer or ~/.config/composer)
+composer config data-dir
+composer config -l | grep /bin
 
-And, where you need it
-
-```
-ini.parse /path/to/config/file.ini
-ini.section.Default
-echo $name
-```
-
-Output: `Albert`
-
-Then, later... (no need to repeat ini.parse /path/to/config/file.ini)
-
-```
-ini.section.Smart
-echo $name
+# Add composer bin dir to your profile file
+# 	export PATH="<composer-home-dir>/vendor/bin:$PATH"
+# E.g. one of:
+export PATH="~/.composer/vendor/bin:$PATH"
+export PATH="~/.config/composer/vendor/bin:$PATH"
 ```
 
-Output: `Einstein`
+### Directly from repo directory
 
-Voilà ! (en français dans le texte)
+Insert in `~/.bashrc` or `~/.profile`, according to your system:
 
-More details inside ini_parser
+```bash
+export PATH="<path-to-repo>/bin:$PATH"
+```
