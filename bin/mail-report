@@ -1,112 +1,107 @@
-#!/bin/sh
-#
+#!/usr/bin/env bash
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
 PID=$$
-PGM=`basename $0`
+PGM=$(basename $0)
 TMP=/tmp/.$PGM.$PID
 BILLDETAIL=/tmp/$PGM-billdetail
 LOG=/tmp/$PGM
-TABLE=`echo "tmp_${PGM}_${PID}" | sed "s/[^a-zA-Z0-9_]//g"`
+TABLE=$(echo "tmp_${PGM}_${PID}" | sed "s/[^a-zA-Z0-9_]//g")
 
 export PAGER=cat
 
 OPTS="b:c:s:r:hvq"
 
-PAR=`echo $OPTS|sed 's/.://g'|grep -v "^$"|sed "s/\([a-zA-Z0-9]*\)/[-\\1]/g" `
-PAROPT=`echo $OPTS | sed "s/-://" | sed 's/\(.\)/\\1\//g' \
-    | sed 's/\(.\)\/:\//[-\\1 <value>] /g' \
-    | sed "s/.\///g" `
-USAGE=`echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g"`
-
+PAR=$(echo $OPTS | sed 's/.://g' | grep -v "^$" | sed "s/\([a-zA-Z0-9]*\)/[-\1]/g")
+PAROPT=$(echo $OPTS | sed "s/-://" | sed 's/\(.\)/\1\//g' |
+	sed 's/\(.\)\/:\//[-\1 <value>] /g' |
+	sed "s/.\///g")
+USAGE=$(echo $PGM $PAR $PAROPT "[<args>]" | sed "s/  / /g")
 
 help() {
-    usage
-    echo
-    echo "      -t <template>"
-    echo "      -H display this help"
-    echo "      -V verbose mode"
-    echo "      -Q quiet mode"
-    echo
-    echo "sorry, helpman is in a minimalist mood"
-    exit 0
+	usage
+	echo
+	echo "      -t <template>"
+	echo "      -H display this help"
+	echo "      -V verbose mode"
+	echo "      -Q quiet mode"
+	echo
+	echo "sorry, helpman is in a minimalist mood"
+	exit 0
 }
 
 usage() {
-    echo "usage: $USAGE"
+	echo "usage: $USAGE"
 }
 
 log() {
-    if [ "$LOG" ]
-        then
-        ERRNUM=`echo "$@" |grep "^[0-9]* "|cut -d " " -f 1`
-        ERR=`echo $ERRNUM|sed "s/\([0-9]*\)/<\\1\> /"`
-        [ "$ERRNUM" ] && shift
-        LOGMESSAGE=$@
-        LOGLINE=`date +"%b %e %H:%M:%S"`" $PGM[$$]: $ERR$LOGMESSAGE"
-        [ "$LOGGING" = "yes" ] && (echo $LOGLINE >> $LOG.log)
-        if [ "$ERRNUM" -a "$QUIET" != "yes" ]
-            then
-            echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2
-        elif [ "$DEBUG" = "yes" ]
-            then
-            echo "$PGM: $LOGMESSAGE" >&2
-        fi
-    else
-        echo "LOG variable not set"
-        exit 1
-    fi
+	if [ "$LOG" ]; then
+		ERRNUM=$(echo "$@" | grep "^[0-9]* " | cut -d " " -f 1)
+		ERR=$(echo $ERRNUM | sed "s/\([0-9]*\)/<\1\> /")
+		[ "$ERRNUM" ] && shift
+		LOGMESSAGE=$@
+		LOGLINE=$(date +"%b %e %H:%M:%S")" $PGM[$$]: $ERR$LOGMESSAGE"
+		[ "$LOGGING" = "yes" ] && (echo $LOGLINE >>$LOG.log)
+		if [ "$ERRNUM" -a "$QUIET" != "yes" ]; then
+			echo "$PGM: $LOGMESSAGE ($ERRNUM)" >&2
+		elif [ "$DEBUG" = "yes" ]; then
+			echo "$PGM: $LOGMESSAGE" >&2
+		fi
+	else
+		echo "LOG variable not set"
+		exit 1
+	fi
 }
 
 end() {
-#    ERRNUM=$1
-#    if [ "$ERRNUM" != "" -a "$ERRNUM" = "`echo $ERRNUM|sed 's/[^0-9]//g'`" ]
-#        then
-#        ERRNUM=`expr $ERRNUM + 0`
-#        shift
-#        [ "$#" -gt 0 ]  && log "<$ERRNUM>" $@
-#    else
-#        ERRNUM=
-#        if [ "$#" -gt 0 ]
-#            then
-#            log $@
-#	elif [ "$DEBUG" = "yes" ]
-#	    then
-	if [ "$1" ]
-		then
+	#    ERRNUM=$1
+	#    if [ "$ERRNUM" != "" -a "$ERRNUM" = "`echo $ERRNUM|sed 's/[^0-9]//g'`" ]
+	#        then
+	#        ERRNUM=`expr $ERRNUM + 0`
+	#        shift
+	#        [ "$#" -gt 0 ]  && log "<$ERRNUM>" $@
+	#    else
+	#        ERRNUM=
+	#        if [ "$#" -gt 0 ]
+	#            then
+	#            log $@
+	#	elif [ "$DEBUG" = "yes" ]
+	#	    then
+	if [ "$1" ]; then
 		log $@
 	else
-	    log "End processing"
-    fi
-    rm -f $TMP*
-    rm -f $LOG.lock
-    exit $ERRNUM
+		log "End processing"
+	fi
+	rm -f $TMP*
+	rm -f $LOG.lock
+	exit $ERRNUM
 }
 
-while getopts $OPTS PARAM
-  do
-    case $PARAM in
+while getopts $OPTS PARAM; do
+	case $PARAM in
 	"?")
-	    ERROR=1
-	    ;;
+		ERROR=1
+		;;
 	-)
-	    case $OPTARG in
+		case $OPTARG in
 		help)
-		    help
-		    ;;
+			help
+			;;
 		*)
-		    printf "$PGM: illegal option -- $OPTARG"
-#		    ERROR=1
-	    esac
-	    ;;
+			printf "$PGM: illegal option -- $OPTARG"
+			#		    ERROR=1
+			;;
+		esac
+		;;
 	r)
-	    FROM=$OPTARG
-	    ;;
+		FROM=$OPTARG
+		;;
 	s)
-	    SUBJECT=$OPTARG
-	    ;;
+		SUBJECT=$OPTARG
+		;;
 	c)
 		CC=$OPTARG
 		;;
@@ -114,58 +109,53 @@ while getopts $OPTS PARAM
 		BCC=$OPTARG
 		;;
 	H)
-	    help
-	    ;;
+		help
+		;;
 	V)
-#		    echo "Debug mode"
-	    STDERR="&1"
-	    DEBUG=yes
-	    ;;
+		#		    echo "Debug mode"
+		STDERR="&1"
+		DEBUG=yes
+		;;
 	Q)
-	    STDOUT="/dev/null"
+		STDOUT="/dev/null"
 		QUIET=yes
-	    DEBUG=no
-	            ;;
+		DEBUG=no
+		;;
 	*)
-	    VALUES="$VALUES $PARAM"
-	    LASTVAL=$PARAM
-    esac
+		VALUES="$VALUES $PARAM"
+		LASTVAL=$PARAM
+		;;
+	esac
 
 done 2>/dev/null
 
-shift `expr $OPTIND - 1`
+shift $(expr $OPTIND - 1)
 
-if [ $ERROR ]
-then
-    usage
-echo "$ERROR   type '$PGM --help' for more info"
+if [ $ERROR ]; then
+	usage
+	echo "$ERROR   type '$PGM --help' for more info"
 
-    end "$ERROR   type '$PGM --help' for more info"
+	end "$ERROR   type '$PGM --help' for more info"
 fi
 
-if [ ! "$USER" ]
-then
-	USER=`id|cut -d "(" -f 2|cut -d ")" -f 1`
+if [ ! "$USER" ]; then
+	USER=$(id | cut -d "(" -f 2 | cut -d ")" -f 1)
 fi
 
-if [ ! "$HOSTNAME" ]
-then
-	HOSTNAME=`hostname`
+if [ ! "$HOSTNAME" ]; then
+	HOSTNAME=$(hostname)
 fi
 
-if [ ! "$DOMAINNAME" ]
-then
-	DOMAINNAME=`domainname`
-	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ];
-	then
+if [ ! "$DOMAINNAME" ]; then
+	DOMAINNAME=$(domainname)
+	if [ ! "$DOMAINNAME" -o "$DOMAINNAME" = "(none)" ]; then
 		DOMAINNAME=magiiic.com
 	fi
 fi
 
 RETMAIL="$HOSTNAME@$DOMAINNAME"
 
-if [ -f "$FROM" ]
-	then
+if [ -f "$FROM" ]; then
 	SENDER=$FROM
 else
 	SENDER="\"$HOSTNAME\" <$RETMAIL>"
@@ -183,7 +173,7 @@ fi
 #  TRSUB=$TRDIR/.trace_ftp_mail.$$.4t
 #  INPUT=$TRDIR/.input_ftp_mail.$$.t
 
-DEST=`echo $@|sed "s/ /,/g"|sed "s/,,*/,/g"` 
+DEST=$(echo $@ | sed "s/ /,/g" | sed "s/,,*/,/g")
 
 #  cat > $INPUT
 #  echo "$SUB" > $TRSUB
@@ -193,29 +183,26 @@ DEST=`echo $@|sed "s/ /,/g"|sed "s/,,*/,/g"`
 #  cat $INPUT >> $TRSUB
 
 parentpid=$PPID
-parentcmd=`ps -p $$ -o command=`
-parentusr=`ps -p $$ -o user=`
+parentcmd=$(ps -p $$ -o command=)
+parentusr=$(ps -p $$ -o user=)
 
-
-if [ "$SUBJECT" = "" ]
-	then
+if [ "$SUBJECT" = "" ]; then
 	SUBJECT="$parentcmd report"
 fi
 
-if [ "$DEST" = "" ]
-	then
+if [ "$DEST" = "" ]; then
 	DEST="report@$DOMAINNAME"
 fi
 
-echo "From: $SENDER" > $TMP.headers
-echo "Reply-To: $SENDER" > $TMP.headers
-echo "To: $DEST" >> $TMP.headers
-[ "$CC" ]  && echo "Cc: $CC"   >> $TMP.headers
-[ "$BCC" ] && echo "Bcc: $BCC" >> $TMP.headers
-echo "Subject: $SUBJECT" >> $TMP.headers
-echo "X-PPID: $PPID" >> $TMP.headers
-echo "X-Parent-Process: $parentcmd" >> $TMP.headers
-echo "X-Parent-User: $parentusr" >> $TMP.headers
+echo "From: $SENDER" >$TMP.headers
+echo "Reply-To: $SENDER" >$TMP.headers
+echo "To: $DEST" >>$TMP.headers
+[ "$CC" ] && echo "Cc: $CC" >>$TMP.headers
+[ "$BCC" ] && echo "Bcc: $BCC" >>$TMP.headers
+echo "Subject: $SUBJECT" >>$TMP.headers
+echo "X-PPID: $PPID" >>$TMP.headers
+echo "X-Parent-Process: $parentcmd" >>$TMP.headers
+echo "X-Parent-User: $parentusr" >>$TMP.headers
 
 # ps -ef|grep $$ \
 #     | while read user pid ppid foo date term time command
@@ -228,8 +215,7 @@ echo "X-Parent-User: $parentusr" >> $TMP.headers
 #   fi
 # done
 
-
-# if [  -f $TMP ] 
+# if [  -f $TMP ]
 #     then
 #     . $TMP
 #     ps -ef|grep $X_PPID \
@@ -243,18 +229,17 @@ echo "X-Parent-User: $parentusr" >> $TMP.headers
 #     done
 # fi
 
-cat > $TMP.input
+cat >$TMP.input
 grep -q . $TMP.input
-if [ $? -ne 0 ]
-then
-    rm -f $TMP.*
-    exit 0
+if [ $? -ne 0 ]; then
+	rm -f $TMP.*
+	exit 0
 fi
 
-grep -q "<[a-zA-Z].*>" $TMP.input \
-    && echo "Content-Type: text/html" >> $TMP.headers \
-    || echo "Content-Type: text/plain" >> $TMP.headers
-echo >> $TMP.headers
+grep -q "<[a-zA-Z].*>" $TMP.input &&
+	echo "Content-Type: text/html" >>$TMP.headers ||
+	echo "Content-Type: text/plain" >>$TMP.headers
+echo >>$TMP.headers
 
 cat $TMP.headers $TMP.input | /usr/sbin/sendmail "$DEST"
 

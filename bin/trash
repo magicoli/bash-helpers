@@ -1,46 +1,39 @@
-#!/bin/sh
-#
+#!/usr/bin/env bash
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
 
-for file in "$@"
-	do
+for file in "$@"; do
 	unset trash
 	[ -e "$file" ] || continue
-	filename=`basename "$file"`
-	dir=`dirname "$file"`
-	if [ "$dir" = "." ]
-		then
+	filename=$(basename "$file")
+	dir=$(dirname "$file")
+	if [ "$dir" = "." ]; then
 		dir=$PWD
 	fi
-#	echo "$filename"
-#	echo "   dir: $dir"
-	volume=`echo "$dir" | cut -d "/" -f 2`
-	if [ "$volume" = "Volumes" ]
-		then
-		disk=`echo "$dir" | cut -d "/" -f 3`
+	#	echo "$filename"
+	#	echo "   dir: $dir"
+	volume=$(echo "$dir" | cut -d "/" -f 2)
+	if [ "$volume" = "Volumes" ]; then
+		disk=$(echo "$dir" | cut -d "/" -f 3)
 		## assuming soflt link is local disk, but actually it could be a network volume
-		if [ ! -h "/$volume/$disk" ]
-			then
-#			echo "   disk: $disk"
-			uid=`id -u | egrep -v "[^0-9]"`
-			if [ "$uid" != "" ]
-				then
+		if [ ! -h "/$volume/$disk" ]; then
+			#			echo "   disk: $disk"
+			uid=$(id -u | egrep -v "[^0-9]")
+			if [ "$uid" != "" ]; then
 				trash="/$volume/$disk/.Trashes/$uid"
-				mkdir -p "$trash" || unset trash
+				mkdir -p "$trash" ||  unset trash
 			fi
 		fi
 	fi
-	if [ ! -d "$trash" ]
-		then
+	if [ ! -d "$trash" ]; then
 		trash=~/.Trash
 	fi
-	if [ ! -d "$trash" ]
-		then
+	if [ ! -d "$trash" ]; then
 		trash="$dir/Trash"
-		mkdir -p "$dir/Trash" || continue
+		mkdir -p "$dir/Trash" ||  continue
 	fi
-#	echo "   trash: $trash"
+	#	echo "   trash: $trash"
 	mv "$file" "$trash/"
 done

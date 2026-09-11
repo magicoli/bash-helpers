@@ -1,5 +1,5 @@
-#!/bin/bash
-#
+#!/usr/bin/env bash
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
@@ -16,21 +16,19 @@ PLAYER=$(which paplay) || PLAYER=$(which aplay) || PLAYER=$(which mplayer)
 [ "$@" ] || exit
 string="$@"
 
-case $TTS in 
-    say)
+case $TTS in
+say)
 	say "$string"
 	;;
-    espeak)
+espeak)
 	espeak -v $evoice -s $speed -p $pitch "$string"
 	;;
-    mbrola)
+mbrola)
 	[ -f "$mvoice" ] || mvoice=/usr/share/mbrola/$mvoice/$mvoice
-	espeak -v $evoice -s $speed -p $pitch "$string" --pho \
-	    | mbrola $mvoice - -.au | paplay >/dev/null 2>/dev/null
+	espeak -v $evoice -s $speed -p $pitch "$string" --pho |
+		mbrola $mvoice - -.au | paplay >/dev/null 2>/dev/null
 	;;
-    *)
+*)
 	echo "$string"
 	;;
 esac
-
-

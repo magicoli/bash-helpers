@@ -1,5 +1,5 @@
-#!/bin/bash
-#
+#!/usr/bin/env bash
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
@@ -47,190 +47,178 @@ TMPINI=$TMP.ini_parser
 
 trap "{ rm -f $TMPINI.*; ls $TMPINI.* 2>/dev/null; }" EXIT
 
-ini.cat ()
-{
-    cat $@ \
-	| egrep -v "^[[:blank:]]*$|^[[:blank:]]*;" \
-	| sed "s/^[[:blank:]]*//" \
-	| sed "s/[[:blank:]]*$//" \
-	| sed ':a;N;$!ba;s/\[[[:alpha:]]*\]\n\[/[/g' \
-	| sed "s/[[:blank:]]*=[[:blank:]]*/=/g" \
-	| sed "s/^[[:blank:]]*;.*//" \
-	| sed "s/;[[:blank:]]*$//" \
-	| sed "s/^[[:blank:]]*$//"
+ini.cat() {
+	cat $@ |
+		egrep -v "^[[:blank:]]*$|^[[:blank:]]*;" |
+		sed "s/^[[:blank:]]*//" |
+		sed "s/[[:blank:]]*$//" |
+		sed ':a;N;$!ba;s/\[[[:alpha:]]*\]\n\[/[/g' |
+		sed "s/[[:blank:]]*=[[:blank:]]*/=/g" |
+		sed "s/^[[:blank:]]*;.*//" |
+		sed "s/;[[:blank:]]*$//" |
+		sed "s/^[[:blank:]]*$//"
 }
-ini.parse ()
-{
-  [ ! "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
-  [ ! -f "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
-    SAVED_IFS=$IFS
-    # ini="$(<$1)"                # read the file
-    ini=$(
-	ini.cat $@ \
-	    | sed "s/;/%%SEMICOLON%%/g" \
-	    | sed "s/\([{\\$]\)/\\\\\1/g" \
-	    | sed "s/=\([^\"].*[|{}\\$].*\)\"*$/=\"\\1\"/g" \
-	    | sed "s/=/%3D/g" \
-	    | sed "s/%3D/=/"
-    )
-    ini="${ini//[/\[}"          # escape [
-    ini="${ini//]/\]}"          # escape ]
-    IFS=$'\n' && ini=( ${ini} ) # convert to line-array
-    ini=( ${ini[*]//;*/} )      # remove comments with ;
-    ini=( ${ini[*]/\    =/=} )  # remove tabs before =
-    ini=( ${ini[*]/=\   /=} )   # remove tabs after =
-    ini=( ${ini[*]/\ =\ /=} )   # remove anything with a space around =
-    ini=( ${ini[*]/#\\[/\}$'\n'ini.section.} ) # set section prefix
-    ini=( ${ini[*]/%\\]/ \(} )    # convert text2function (1)
-    ini=( ${ini[*]/=/=\(} )    # convert item to array
-    ini=( ${ini[*]/%/ \)} )     # close array parenthesis
-    ini=( ${ini[*]/%\\ \)/ \\} ) # the multiline trick
-    ini=( ${ini[*]/%\( \)/\(\) \{} ) # convert text2function (2)
-    ini=( ${ini[*]/%\} \)/\}} ) # remove extra parenthesis
-    ini[0]="" # remove first element
-    ini[${#ini[*]} + 1]='}'    # add the last brace
-    eval "$(echo "${ini[*]}" \
-            | sed -e 's/\\$\\{/\\\${/g' \
-              -e 's/%%SEMICOLON%%/;/g' \
-              -e 's/%3B/;/g' \
-              -e 's/%3D/=/g'
-           )"
-    exitcode=$?
-    ini_cache=$@
-    ini_parsed=$@
-    IFS=$OLDIFS
-    return $exitcode
-}
-
-ini.list.sections ()
-{
-  [ ! "$1" -a ! "$ini_parsed" ] && end 1 "$FUNCNAME needs you to load one or more .ini before using $FUNCNAME or supply files to load to the command"
-
-  if [ "$1" ]
-  then
-    ini_process=$@
-  else
-    ini_process=$ini_parsed
-  fi
-  printf "" > $TMPINI.sections
-  IFS=" "
-  i=0
-  touch $TMPINI.sections
-  for file in $ini_process
-  do
-    [ ! -f "$file" ] && log 1 "$FUNCNAME $file not found" && continue
-    touch $TMPINI.sections.new $TMPINI.sections.added
-    i=$(($i + 1))
-    printf "" | ini.cat $file \
-    | grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" \
-    | cut -d "[" -f 2 | cut -d "]" -f 1 \
-    | while read section
-    do
-      grep -q "^$section$" $TMPINI.sections \
-      && continue
-      grep -q "^$section$" $TMPINI.sections.added \
-      && continue
-      echo $section >> $TMPINI.sections.added
-    done
-    cat  $TMPINI.sections $TMPINI.sections.added > $TMPINI.sections.new 2>/dev/null
-    mv $TMPINI.sections.new $TMPINI.sections
-    rm -f $TMPINI.sections.added
-  done
-  cat $TMPINI.sections
-  rm -f $TMPINI.sections
-  return
+ini.parse() {
+	[ ! "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
+	[ ! -f "$1" ] && log 1 "usage: $FUNCNAME <file.ini>" && return 1
+	SAVED_IFS=$IFS
+	# ini="$(<$1)"                # read the file
+	ini=$(
+		ini.cat $@ |
+			sed "s/;/%%SEMICOLON%%/g" |
+			sed "s/\([{\\$]\)/\\\\\1/g" |
+			sed "s/=\([^\"].*[|{}\\$].*\)\"*$/=\"\\1\"/g" |
+			sed "s/=/%3D/g" |
+			sed "s/%3D/=/"
+	)
+	ini="${ini//[/\[}"                       # escape [
+	ini="${ini//]/\]}"                       # escape ]
+	IFS=$'\n' && ini=(${ini})                # convert to line-array
+	ini=(${ini[*]//;*/})                     # remove comments with ;
+	ini=(${ini[*]/\    =/=})                 # remove tabs before =
+	ini=(${ini[*]/=\   /=})                  # remove tabs after =
+	ini=(${ini[*]/\ =\ /=})                  # remove anything with a space around =
+	ini=(${ini[*]/#\\[/\}$'\n'ini.section.}) # set section prefix
+	ini=(${ini[*]/%\\]/ \(})                 # convert text2function (1)
+	ini=(${ini[*]/=/=\(})                    # convert item to array
+	ini=(${ini[*]/%/ \)})                    # close array parenthesis
+	ini=(${ini[*]/%\\ \)/ \\})               # the multiline trick
+	ini=(${ini[*]/%\( \)/\(\) \{})           # convert text2function (2)
+	ini=(${ini[*]/%\} \)/\}})                # remove extra parenthesis
+	ini[0]=""                                # remove first element
+	ini[${#ini[*]} + 1]='}'                  # add the last brace
+	eval "$(
+		echo "${ini[*]}" |
+			sed -e 's/\\$\\{/\\\${/g' \
+				-e 's/%%SEMICOLON%%/;/g' \
+				-e 's/%3B/;/g' \
+				-e 's/%3D/=/g'
+	)"
+	exitcode=$?
+	ini_cache=$@
+	ini_parsed=$@
+	IFS=$OLDIFS
+	return $exitcode
 }
 
-ini.write ()
-{
-    [ "$1" = "-a" ] && APPEND=yes && shift || unset APPEND
-    SAVED_IFS=$IFS
-    IFS=' '$'\n'
-    fun="$(declare -F)"
-    fun="${fun//declare -f/}"
-    for f in $fun; do
-        [ "${f#ini.section}" == "${f}" ] && continue
-	[ "$1" ] && [ "$f" != "ini.section.$1" ] && continue
-#        item="$(declare -f ${f})"
-        item="$(declare -f ${f} | sed -e 's/\\${.*}/BRACE/g' -e "s/=/%3D/g" -e "s/%3D/=/")"
-        item="${item##*[^\\]\{}"
-        item="${item%\}}"
-#        item="${item//=*;/}"
-#        vars="${item//=*/}"
- 	vars="$item"
-        [ ! "$APPEND" ] && echo "[${f#ini.section.}]"
-	for var in $vars; do
-	    echo "$var" | grep -q "=" || continue
-	    var=$(echo $var | sed -e "s/=/%3D/g" -e "s/%3D/=/")
-	    var="${var%=*}"
-            echo "$TAB"$var=\"${!var}\" | grep -v ');*=""'
-        done | sed 's/${/$\\{/g' > $TMPINI.vars
-	eval $f
-	. $TMPINI.vars
-	rm -f $TMPINI.vars
-        for var in $vars; do
-	    echo "$var" | grep -q "=" || continue
-	    var="${var%=*}"
-            echo "$TAB"$var = \"${!var}\" | grep -v ');*=""'
-        done | sed "s/\$\\\{/$\{/"
-    done
-    IFS=$SAVED_IFS
+ini.list.sections() {
+	[ ! "$1" -a ! "$ini_parsed" ] && end 1 "$FUNCNAME needs you to load one or more .ini before using $FUNCNAME or supply files to load to the command"
+
+	if [ "$1" ]; then
+		ini_process=$@
+	else
+		ini_process=$ini_parsed
+	fi
+	printf "" >$TMPINI.sections
+	IFS=" "
+	i=0
+	touch $TMPINI.sections
+	for file in $ini_process; do
+		[ ! -f "$file" ] && log 1 "$FUNCNAME $file not found" && continue
+		touch $TMPINI.sections.new $TMPINI.sections.added
+		i=$(($i + 1))
+		printf "" | ini.cat $file |
+			grep "^[[:blank:]]*\[[a-zA-Z0-9_]*\]" |
+			cut -d "[" -f 2 | cut -d "]" -f 1 |
+			while read section; do
+				grep -q "^$section$" $TMPINI.sections &&
+					continue
+				grep -q "^$section$" $TMPINI.sections.added &&
+					continue
+				echo $section >>$TMPINI.sections.added
+			done
+		cat $TMPINI.sections $TMPINI.sections.added >$TMPINI.sections.new 2>/dev/null
+		mv $TMPINI.sections.new $TMPINI.sections
+		rm -f $TMPINI.sections.added
+	done
+	cat $TMPINI.sections
+	rm -f $TMPINI.sections
+	return
 }
 
-ini.merge()
-{
-  [ ! "$2" ] && log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]" && return 1
-  section=$1; shift
-  ini.list.sections $@ | grep -q "^$section$"
-  if [ $? -ne 0 ]
-  then
-    log 1 "$FUNCNAME didn't find the section $section"
-    log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]"
-    return 1
-  fi
-
-  echo "[$section]" > $TMPINI.merge
-  i=0
-  for file in $@
-  do
-    i=$(($i + 1))
-    #	touch $TMPINI.merge.$i
-    [ ! -f "$file" ] && continue
-
-    ini.parse $file 2>/dev/null
-    ini.list.sections $file | grep -q "^$section$" || continue
-    ini.section.$section || continue
-    ini.write -a $section | while read line
-    do
-      var=$(echo "$line" | cut -d = -f 1 \
-      | sed "s/[[:blank:]]*//g")
-      egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge > $TMPINI.merge.new
-      echo "$line" >> $TMPINI.merge.new
-      mv $TMPINI.merge.new $TMPINI.merge
-    done
-  done
-  count=$(cat $TMPINI.merge | wc -l)
-  [ $count -gt 1 ] &&
-  ini.parse $TMPINI.merge && ini_parsed="$@"*
-  rm -f $TMPINI.merge.*
-  return
+ini.write() {
+	[ "$1" = "-a" ] && APPEND=yes && shift || unset APPEND
+	SAVED_IFS=$IFS
+	IFS=' '$'\n'
+	fun="$(declare -F)"
+	fun="${fun//declare -f/}"
+	for f in $fun; do
+		[ "${f#ini.section}" == "${f}" ] && continue
+		[ "$1" ] && [ "$f" != "ini.section.$1" ] && continue
+		#        item="$(declare -f ${f})"
+		item="$(declare -f ${f} | sed -e 's/\\${.*}/BRACE/g' -e "s/=/%3D/g" -e "s/%3D/=/")"
+		item="${item##*[^\\]\{}"
+		item="${item%\}}"
+		#        item="${item//=*;/}"
+		#        vars="${item//=*/}"
+		vars="$item"
+		[ ! "$APPEND" ] && echo "[${f#ini.section.}]"
+		for var in $vars; do
+			echo "$var" | grep -q "=" || continue
+			var=$(echo $var | sed -e "s/=/%3D/g" -e "s/%3D/=/")
+			var="${var%=*}"
+			echo "$TAB"$var=\"${!var}\" | grep -v ');*=""'
+		done | sed 's/${/$\\{/g' >$TMPINI.vars
+		eval $f
+		. $TMPINI.vars
+		rm -f $TMPINI.vars
+		for var in $vars; do
+			echo "$var" | grep -q "=" || continue
+			var="${var%=*}"
+			echo "$TAB"$var = \"${!var}\" | grep -v ');*=""'
+		done | sed "s/\$\\\{/$\{/"
+	done
+	IFS=$SAVED_IFS
 }
 
-ini.write.all ()
-{
-  [ ! "$1" ] && [ ! "$ini_parsed" ] && log 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command" && return 1
-  if [ "$1" -a "$1" != "$ini_parsed" ]
-  then
-    ini.parse $@
-    ini.write.all
-     # $@
-    return
-  fi
+ini.merge() {
+	[ ! "$2" ] && log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]" && return 1
+	section=$1
+	shift
+	ini.list.sections $@ | grep -q "^$section$"
+	if [ $? -ne 0 ]; then
+		log 1 "$FUNCNAME didn't find the section $section"
+		log 1 "Usage: $FUNCNAME Section <file1.ini> [<file2.ini>] [...]"
+		return 1
+	fi
 
-  ini.list.sections $ini_parsed | while read section
-  do
-    ini.merge $section $ini_parsed
-    ini.section.$section 2>/dev/null
-    ini.write $section
-  done
+	echo "[$section]" >$TMPINI.merge
+	i=0
+	for file in $@; do
+		i=$(($i + 1))
+		#	touch $TMPINI.merge.$i
+		[ ! -f "$file" ] && continue
+
+		ini.parse $file 2>/dev/null
+		ini.list.sections $file | grep -q "^$section$" || continue
+		ini.section.$section || continue
+		ini.write -a $section | while read line; do
+			var=$(echo "$line" | cut -d = -f 1 |
+				sed "s/[[:blank:]]*//g")
+			egrep -v "^[[:blank:]]*$var[[:blank:]]*=" $TMPINI.merge >$TMPINI.merge.new
+			echo "$line" >>$TMPINI.merge.new
+			mv $TMPINI.merge.new $TMPINI.merge
+		done
+	done
+	count=$(cat $TMPINI.merge | wc -l)
+	[ $count -gt 1 ] &&
+		ini.parse $TMPINI.merge && ini_parsed="$@"*
+	rm -f $TMPINI.merge.*
+	return
+}
+
+ini.write.all() {
+	[ ! "$1" ] && [ ! "$ini_parsed" ] && log 1 "$FUNCNAME needs you to load one or more .ini before using write.all or supply files to load to the command" && return 1
+	if [ "$1" -a "$1" != "$ini_parsed" ]; then
+		ini.parse $@
+		ini.write.all
+		# $@
+		return
+	fi
+
+	ini.list.sections $ini_parsed | while read section; do
+		ini.merge $section $ini_parsed
+		ini.section.$section 2>/dev/null
+		ini.write $section
+	done
 }

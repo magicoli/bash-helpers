@@ -1,5 +1,5 @@
-#!/bin/sh
-#
+#!/usr/bin/env bash
+
 # Copyright 2015 Olivier van Helden <olivier@van-helden.net>
 # Released under GNU Affero GPL v3.0 license
 #    http://www.gnu.org/licenses/agpl-3.0.html
@@ -10,34 +10,32 @@ TMP=/tmp/$PGM.$$
 export PATH=$PATH:/sbin:/usr/sbin:/usr/local/sbin
 
 which dmidecode >/dev/null && {
-    dmidecode -t processor | egrep ":" | sed "s/^[[:blank:]]*//" | sed "s/: */:/" | while read line
-    do
-	var=$(echo "$line" | cut -d ":" -f 1 | sed "s/ //g")
-	value=$(echo "$line" | cut -d ":" -f 2-)
-	echo "$var='$value'"
-    done > $TMP.vars
-    
-    [ -f "$TMP.vars" ] && . "$TMP.vars"
-    
-    [ $CoreCount -gt 1 ] && cores=" ($CoreCount cores)"
-    memory=$(free -b | grep "^Mem:" | while read f mem f; do echo $mem; done)
-#    memprint=$(printf "%'.3f\n" "$memory")
-    memprint=$(echo "$memory" | sed -e ': L
+	dmidecode -t processor | egrep ":" | sed "s/^[[:blank:]]*//" | sed "s/: */:/" | while read line; do
+		var=$(echo "$line" | cut -d ":" -f 1 | sed "s/ //g")
+		value=$(echo "$line" | cut -d ":" -f 2-)
+		echo "$var='$value'"
+	done >$TMP.vars
+
+	[ -f "$TMP.vars" ] && . "$TMP.vars"
+
+	[ $CoreCount -gt 1 ] && cores=" ($CoreCount cores)"
+	memory=$(free -b | grep "^Mem:" | while read f mem f; do echo $mem; done)
+	#    memprint=$(printf "%'.3f\n" "$memory")
+	memprint=$(echo "$memory" | sed -e ': L
 s/\([0-9]\{1,19\}\)\([0-9]\{3\}\)/\1,\2/
 t L')
-    echo "$Version$cores $memprint" | grep "CPU @" && rm $TMP.* &&  exit
-    
-    echo "$Manufacturer $Family $Version @ $CurrentSpeed $memory"
+	echo "$Version$cores $memprint" | grep "CPU @" && rm $TMP.* && exit
+
+	echo "$Manufacturer $Family $Version @ $CurrentSpeed $memory"
 } || {
-    Version=$(sysctl -n machdep.cpu.brand_string)
-    CoreCount=$(sysctl -n machdep.cpu.core_count)
-    [ $CoreCount -gt 1 ] && cores=" ($CoreCount cores)"
-    memory=$(sysctl -n hw.memsize)
-    memprint=$(echo "$memory" | sed -e ': L
+	Version=$(sysctl -n machdep.cpu.brand_string)
+	CoreCount=$(sysctl -n machdep.cpu.core_count)
+	[ $CoreCount -gt 1 ] && cores=" ($CoreCount cores)"
+	memory=$(sysctl -n hw.memsize)
+	memprint=$(echo "$memory" | sed -e ': L
 s/\([0-9]\{1,19\}\)\([0-9]\{3\}\)/\1,\2/
 t L')
-    echo "$Version$cores $memprint"
+	echo "$Version$cores $memprint"
 }
 
 rm -f $TMP.*
-

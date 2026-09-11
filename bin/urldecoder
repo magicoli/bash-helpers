@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/bin/env php
 <?php
 $file="";
 
@@ -20,11 +20,11 @@ $help = "\n\nVersion: $version\n\n"
 		."This program uses the PHP urldecode and urlencode functions. From the PHP Manual:\n"
 		."urlencode - Returns a string in which all non-alphanumeric characters except -_. have been replaced with a percent (%) sign followed by two hex digits and spaces encoded as plus (+) signs. It is encoded the same way that the posted data from a WWW form is encoded, that is the same way as in application/x-www-form-urlencoded media type. This differs from the » RFC 1738 encoding (see rawurlencode()) in that for historical reasons, spaces are encoded as plus (+) signs.\n\n";
 
-	
+
 // set default action to return help
 $do = "help";
 
-// set default input as standard input 
+// set default input as standard input
 $type = "input";
 
 // get argument from the CLI input
@@ -35,12 +35,12 @@ if( $totalArgv > 1 ){
 	for( $x = 1; $x < $totalArgv; $x++ ) {
 		switch($argv[$x]) {
 			case '-e':
-				// we are encoding 
+				// we are encoding
 				$option = "encode";
 				$do = "run";
 			break;
 			case '-d':
-				// we are decoding 
+				// we are decoding
 				$option = "decode";
 				$do = "run";
 			break;
@@ -75,7 +75,7 @@ switch($do) {
 
 function urlcode($i, $f, $o) {
 	if ($i == "file") {
-		$file = @fopen("$f", "r") or exit("Unable to open file $f!\n\n");	
+		$file = @fopen("$f", "r") or exit("Unable to open file $f!\n\n");
 	} else {
 		$file = @fopen('php://stdin', 'r') or exit("Unable to process standard input\n\n");
 	}
@@ -85,7 +85,7 @@ function urlcode($i, $f, $o) {
 		if ($o == 'decode') {
 		echo urldecode($line);
 		} else {
-		echo urlencode($line);	
+		echo urlencode($line);
 		}
 		echo "\n";
 	}
